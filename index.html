@@ -142,7 +142,7 @@
           <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
             <h2 class="font-black text-lg">Gestion de Alumnos</h2>
             <button
-              v-if="isAdmin"
+              v-if="canManageMasterData"
               @click="startNewStudent"
               class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold"
             >
@@ -152,6 +152,17 @@
 
           <div class="mb-3">
             <input v-model="studentQuery" placeholder="Buscar alumno por nombre, apellidos, curso o grupo" class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm" />
+          </div>
+
+          <div v-if="canManageMasterData" class="mb-3 flex flex-wrap gap-2 items-center">
+            <button @click="downloadStudentsTemplateCsv" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">
+              Descargar plantilla CSV alumnado
+            </button>
+            <label class="px-3 py-2 rounded-lg bg-blue-900/40 border border-blue-700 text-xs font-bold cursor-pointer">
+              Subir CSV alumnado
+              <input type="file" accept=".csv,text/csv" class="hidden" @change="importStudentsFromCsv" />
+            </label>
+            <span class="text-xs text-slate-400">Puedes rellenar la plantilla con Excel y guardarla como CSV UTF-8.</span>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -228,11 +239,22 @@
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
             <h2 class="font-black text-lg">Gestion de Empresas</h2>
-            <button v-if="isAdmin" @click="startNewCompany" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nueva empresa</button>
+            <button v-if="canManageMasterData" @click="startNewCompany" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nueva empresa</button>
           </div>
 
           <div class="mb-3">
             <input v-model="companyQuery" placeholder="Buscar empresa por nombre, CIF o sector" class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm" />
+          </div>
+
+          <div v-if="canManageMasterData" class="mb-3 flex flex-wrap gap-2 items-center">
+            <button @click="downloadCompaniesTemplateCsv" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">
+              Descargar plantilla CSV empresas
+            </button>
+            <label class="px-3 py-2 rounded-lg bg-blue-900/40 border border-blue-700 text-xs font-bold cursor-pointer">
+              Subir CSV empresas
+              <input type="file" accept=".csv,text/csv" class="hidden" @change="importCompaniesFromCsv" />
+            </label>
+            <span class="text-xs text-slate-400">Importacion masiva: una fila por empresa.</span>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -437,8 +459,8 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbxqJkfO8eui7o6qAG9LVN7PlHimw9z429cXr8FXHxqSAgTc5iZFzXoWXt1mNfoR3-KJ/exec';
-
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbyFPl3ihhLr9VYOVJk3GFZZAaP8LDUNZ7T2Cv3-BaDG49AAwW0LE-ZqDJDcI0-I4epP/exec';
+                            
     const { createApp } = Vue;
 
     createApp({
@@ -466,6 +488,7 @@
           activeTab: 'dashboard',
           studentQuery: '',
           companyQuery: '',
+          csvSeparator: ',',
 
           studentFormOpen: false,
           companyFormOpen: false,
@@ -479,6 +502,9 @@
       computed: {
         isUrlConfigured() {
           return this.driveUrl.startsWith('https://script.google.com/');
+        },
+        canManageMasterData() {
+          return this.isAuthenticated;
         },
         navItems() {
           const base = [
@@ -523,6 +549,236 @@
       methods: {
         normalizeEmail(value) {
           return (value || '').toString().trim().replace(/^"|"$/g, '').toLowerCase();
+        },
+        normalizeCsvHeader(value) {
+          return (value || '')
+            .toString()
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, '');
+        },
+        parseCsv(text) {
+          const rows = [];
+          let row = [];
+          let cell = '';
+          let inQuotes = false;
+
+          for (let i = 0; i < text.length; i += 1) {
+            const ch = text[i];
+            const next = text[i + 1];
+
+            if (ch === '"') {
+              if (inQuotes && next === '"') {
+                cell += '"';
+                i += 1;
+              } else {
+                inQuotes = !inQuotes;
+              }
+              continue;
+            }
+
+            if (!inQuotes && ch === this.csvSeparator) {
+              row.push(cell.trim());
+              cell = '';
+              continue;
+            }
+
+            if (!inQuotes && (ch === '\n' || ch === '\r')) {
+              if (ch === '\r' && next === '\n') i += 1;
+              row.push(cell.trim());
+              rows.push(row);
+              row = [];
+              cell = '';
+              continue;
+            }
+
+            cell += ch;
+          }
+
+          if (cell.length > 0 || row.length > 0) {
+            row.push(cell.trim());
+            rows.push(row);
+          }
+
+          return rows.filter((r) => r.some((c) => (c || '').trim() !== ''));
+        },
+        parseCsvBoolean(value) {
+          const v = (value || '').toString().trim().toLowerCase();
+          return ['1', 'true', 'si', 's', 'yes', 'y', 'x'].includes(v);
+        },
+        parseCsvNumber(value) {
+          const n = Number((value || '').toString().trim().replace(',', '.'));
+          return Number.isFinite(n) ? n : 0;
+        },
+        downloadTextFile(filename, content) {
+          const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        },
+        downloadStudentsTemplateCsv() {
+          const header = [
+            'nombre', 'apellidos', 'dni', 'email', 'telefono', 'curso', 'grupo', 'familiaProfesional',
+            'empresaId', 'estado', 'fechaInicio', 'fechaFin', 'horasPrevistas', 'tutorCentro', 'tutorEmpresa', 'observaciones'
+          ];
+          const example = [
+            'Ana', 'Lopez', '12345678A', 'ana@sagrado-corazon.es', '600000000', '2 SMR', 'A', 'Informatica',
+            '', 'pendiente', '2026-09-15', '2027-03-20', '400', 'Marta Perez', 'Luis Diaz', 'Sin observaciones'
+          ];
+          this.downloadTextFile('plantilla_alumnado_ffe.csv', `${header.join(',')}\n${example.join(',')}\n`);
+        },
+        downloadCompaniesTemplateCsv() {
+          const header = [
+            'nombre', 'cif', 'sector', 'direccion', 'localidad', 'contactoNombre', 'contactoEmail',
+            'contactoTelefono', 'plazasDisponibles', 'convenioFirmado', 'convenioFecha', 'observaciones'
+          ];
+          const example = [
+            'Tecno Sur SL', 'B12345678', 'Tecnologia', 'Calle Mayor 1', 'Badajoz', 'Laura Gomez', 'laura@tecnosur.es',
+            '924000000', '3', 'si', '2026-07-01', 'Empresa colaboradora'
+          ];
+          this.downloadTextFile('plantilla_empresas_ffe.csv', `${header.join(',')}\n${example.join(',')}\n`);
+        },
+        csvRowsToObjects(rows) {
+          if (!Array.isArray(rows) || rows.length < 2) return [];
+          const headers = rows[0].map((h) => this.normalizeCsvHeader(h));
+          const result = [];
+          for (let i = 1; i < rows.length; i += 1) {
+            const line = rows[i];
+            const rowObj = {};
+            headers.forEach((h, idx) => {
+              rowObj[h] = (line[idx] || '').toString().trim();
+            });
+            result.push(rowObj);
+          }
+          return result;
+        },
+        pickCsv(row, keys, defaultValue = '') {
+          for (const key of keys) {
+            const normalized = this.normalizeCsvHeader(key);
+            if (row[normalized] !== undefined && row[normalized] !== null && row[normalized] !== '') {
+              return row[normalized];
+            }
+          }
+          return defaultValue;
+        },
+        mapStudentCsvRow(row) {
+          return {
+            nombre: this.pickCsv(row, ['nombre']),
+            apellidos: this.pickCsv(row, ['apellidos']),
+            dni: this.pickCsv(row, ['dni']),
+            email: this.pickCsv(row, ['email']),
+            telefono: this.pickCsv(row, ['telefono']),
+            curso: this.pickCsv(row, ['curso']),
+            grupo: this.pickCsv(row, ['grupo']),
+            familiaProfesional: this.pickCsv(row, ['familiaProfesional', 'familia_profesional', 'familia']),
+            empresaId: this.pickCsv(row, ['empresaId', 'empresa_id']),
+            estado: this.pickCsv(row, ['estado'], 'pendiente'),
+            fechaInicio: this.pickCsv(row, ['fechaInicio', 'fecha_inicio']),
+            fechaFin: this.pickCsv(row, ['fechaFin', 'fecha_fin']),
+            horasPrevistas: this.parseCsvNumber(this.pickCsv(row, ['horasPrevistas', 'horas_previstas'], '0')),
+            tutorCentro: this.pickCsv(row, ['tutorCentro', 'tutor_centro']),
+            tutorEmpresa: this.pickCsv(row, ['tutorEmpresa', 'tutor_empresa']),
+            observaciones: this.pickCsv(row, ['observaciones'])
+          };
+        },
+        mapCompanyCsvRow(row) {
+          return {
+            nombre: this.pickCsv(row, ['nombre']),
+            cif: this.pickCsv(row, ['cif']),
+            sector: this.pickCsv(row, ['sector']),
+            direccion: this.pickCsv(row, ['direccion']),
+            localidad: this.pickCsv(row, ['localidad']),
+            contactoNombre: this.pickCsv(row, ['contactoNombre', 'contacto_nombre']),
+            contactoEmail: this.pickCsv(row, ['contactoEmail', 'contacto_email']),
+            contactoTelefono: this.pickCsv(row, ['contactoTelefono', 'contacto_telefono']),
+            plazasDisponibles: this.parseCsvNumber(this.pickCsv(row, ['plazasDisponibles', 'plazas_disponibles'], '0')),
+            convenioFirmado: this.parseCsvBoolean(this.pickCsv(row, ['convenioFirmado', 'convenio_firmado'])),
+            convenioFecha: this.pickCsv(row, ['convenioFecha', 'convenio_fecha']),
+            observaciones: this.pickCsv(row, ['observaciones'])
+          };
+        },
+        async importStudentsFromCsv(event) {
+          if (!this.canManageMasterData) return;
+          const file = event && event.target && event.target.files ? event.target.files[0] : null;
+          if (!file) return;
+
+          this.isSyncing = true;
+          this.lastSyncError = '';
+          let imported = 0;
+          let failed = 0;
+
+          try {
+            const text = await file.text();
+            const rows = this.parseCsv(text);
+            const objects = this.csvRowsToObjects(rows);
+            if (objects.length === 0) throw new Error('CSV_SIN_FILAS');
+
+            for (let i = 0; i < objects.length; i += 1) {
+              const payload = this.mapStudentCsvRow(objects[i]);
+              if (!payload.nombre || !payload.apellidos) {
+                failed += 1;
+                continue;
+              }
+              try {
+                const data = await this.postToServer('upsert_student', payload);
+                this.upsertLocal(this.students, data.student, 'id');
+                imported += 1;
+              } catch (err) {
+                failed += 1;
+              }
+            }
+            this.lastSyncError = `Importacion alumnado completada. Correctos: ${imported}. Fallidos: ${failed}.`;
+          } catch (err) {
+            this.lastSyncError = `Error en importacion de alumnado: ${err.message || 'CSV_INVALIDO'}`;
+          } finally {
+            this.isSyncing = false;
+            if (event && event.target) event.target.value = '';
+          }
+        },
+        async importCompaniesFromCsv(event) {
+          if (!this.canManageMasterData) return;
+          const file = event && event.target && event.target.files ? event.target.files[0] : null;
+          if (!file) return;
+
+          this.isSyncing = true;
+          this.lastSyncError = '';
+          let imported = 0;
+          let failed = 0;
+
+          try {
+            const text = await file.text();
+            const rows = this.parseCsv(text);
+            const objects = this.csvRowsToObjects(rows);
+            if (objects.length === 0) throw new Error('CSV_SIN_FILAS');
+
+            for (let i = 0; i < objects.length; i += 1) {
+              const payload = this.mapCompanyCsvRow(objects[i]);
+              if (!payload.nombre) {
+                failed += 1;
+                continue;
+              }
+              try {
+                const data = await this.postToServer('upsert_company', payload);
+                this.upsertLocal(this.companies, data.company, 'id');
+                imported += 1;
+              } catch (err) {
+                failed += 1;
+              }
+            }
+            this.lastSyncError = `Importacion empresas completada. Correctos: ${imported}. Fallidos: ${failed}.`;
+          } catch (err) {
+            this.lastSyncError = `Error en importacion de empresas: ${err.message || 'CSV_INVALIDO'}`;
+          } finally {
+            this.isSyncing = false;
+            if (event && event.target) event.target.value = '';
+          }
         },
         parseJwtPayload(token) {
           try {
@@ -824,7 +1080,7 @@
         },
 
         async saveStudent() {
-          if (!this.isAdmin) return;
+          if (!this.canManageMasterData) return;
           this.isSyncing = true;
           this.lastSyncError = '';
           try {
@@ -853,7 +1109,7 @@
           }
         },
         async saveCompany() {
-          if (!this.isAdmin) return;
+          if (!this.canManageMasterData) return;
           this.isSyncing = true;
           this.lastSyncError = '';
           try {
