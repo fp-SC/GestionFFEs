@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestion FFE - Sagrado Corazon</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <style>
+    [v-cloak] { display: none; }
+    body {
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: #03060f;
+    }
+    .spinner { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    .bg-glow-blue {
+      filter: blur(140px);
+      background: radial-gradient(circle, rgba(2,84,199,.16) 0%, rgba(0,0,0,0) 70%);
+    }
+    .bg-glow-red {
+      filter: blur(140px);
+      background: radial-gradient(circle, rgba(223,26,26,.15) 0%, rgba(0,0,0,0) 70%);
+    }
+    .bg-glow-gold {
+      filter: blur(140px);
+      background: radial-gradient(circle, rgba(234,179,8,.08) 0%, rgba(0,0,0,0) 70%);
+    }
+  </style>
+</head>
+<body class="text-slate-100 antialiased p-3 md:p-6 min-h-screen relative overflow-x-hidden">
+  <div class="absolute top-8 left-8 w-[320px] h-[320px] bg-glow-blue pointer-events-none -z-10"></div>
+  <div class="absolute bottom-10 right-10 w-[360px] h-[360px] bg-glow-red pointer-events-none -z-10"></div>
+  <div class="absolute top-1/2 left-1/3 w-[260px] h-[260px] bg-glow-gold pointer-events-none -z-10"></div>
+
+  <div id="app" v-cloak class="max-w-7xl mx-auto">
+    <div v-if="!isAuthenticated" class="fixed inset-0 z-50 bg-[#03060f]/95 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="w-full max-w-xl bg-[#070e1e] border border-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 text-center">
+        <h2 class="text-3xl font-black text-white mb-2">Acceso Restringido</h2>
+        <p class="text-slate-300 mb-2">Debes iniciar sesion con tu cuenta institucional.</p>
+        <p class="text-sky-300 font-bold mb-6">Solo se permite el dominio @sagrado-corazon.es</p>
+
+        <div ref="googleLoginBtn" class="flex justify-center min-h-[44px]"></div>
+
+        <div v-if="isLoadingAuth" class="mt-4 text-slate-300 text-sm flex items-center justify-center gap-2">
+          <i class="ph ph-spinner spinner"></i>
+          Cargando acceso institucional...
+        </div>
+
+        <p v-if="authError" class="mt-5 text-red-300 text-sm bg-red-950/30 border border-red-800/40 rounded-lg p-3">
+          {{ authError }}
+        </p>
+
+        <button
+          type="button"
+          @click="ensureGoogleLoginReady"
+          class="mt-4 px-4 py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-sm font-bold"
+        >
+          Reintentar carga de Google
+        </button>
+      </div>
+    </div>
+
+    <div :class="!isAuthenticated ? 'pointer-events-none select-none blur-[2px]' : ''">
+      <header class="mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#070e1e]/90 p-5 rounded-2xl border border-slate-800 shadow-2xl">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-xl bg-[#040914] border border-slate-700 flex items-center justify-center">
+            <i class="ph ph-briefcase text-3xl text-blue-400"></i>
+          </div>
+          <div>
+            <h1 class="text-xl md:text-2xl font-black">Gestion FFE <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400">Sagrado Corazon</span></h1>
+            <p class="text-xs text-slate-400 font-semibold">Plataforma de Fase de Formacion en Empresas</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-200 font-semibold max-w-[280px] truncate">
+            {{ currentUserEmail || 'Sin usuario' }}
+          </div>
+          <div v-if="isAdmin" class="px-3 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-xs font-bold text-indigo-200">
+            Perfil Admin
+          </div>
+          <div class="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-bold text-emerald-300 flex items-center gap-1">
+            <i v-if="isSyncing" class="ph ph-spinner spinner"></i>
+            <i v-else class="ph ph-cloud-check"></i>
+            {{ isSyncing ? 'Sincronizando...' : 'Sincronizado' }}
+          </div>
+          <button @click="refreshSnapshot" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold">
+            Recargar
+          </button>
+          <button @click="logoutInstitutionalSession" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold">
+            Cerrar sesion
+          </button>
+        </div>
+      </header>
+
+      <div v-if="lastSyncError" class="mb-4 bg-amber-950/40 border border-amber-700/60 text-amber-200 rounded-xl p-3 text-xs">
+        <div class="font-bold mb-1">Diagnostico de sincronizacion</div>
+        <div>{{ lastSyncError }}</div>
+      </div>
+
+      <div v-if="!isUrlConfigured" class="mb-4 bg-red-950/40 border border-red-800 text-red-200 rounded-xl p-3 text-sm">
+        Configura la variable URL_DEL_SCRIPT en este HTML con la URL /exec del desplegable de Apps Script.
+      </div>
+
+      <nav class="mb-5 bg-[#070e1e]/90 rounded-2xl border border-slate-800 p-2 flex flex-wrap gap-2">
+        <button
+          v-for="item in navItems"
+          :key="item.key"
+          @click="activeTab = item.key"
+          :class="activeTab === item.key ? 'bg-blue-600 text-white' : 'bg-[#040914] text-slate-300 border border-slate-700'"
+          class="px-3 py-2 rounded-lg text-xs font-bold transition"
+        >
+          <i :class="item.icon"></i> {{ item.label }}
+        </button>
+      </nav>
+
+      <section v-if="activeTab === 'dashboard'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <p class="text-xs text-slate-400">Alumnos</p>
+          <p class="text-2xl font-black text-white">{{ students.length }}</p>
+        </div>
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <p class="text-xs text-slate-400">Empresas</p>
+          <p class="text-2xl font-black text-white">{{ companies.length }}</p>
+        </div>
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <p class="text-xs text-slate-400">Seguimientos</p>
+          <p class="text-2xl font-black text-white">{{ tracking.length }}</p>
+        </div>
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <p class="text-xs text-slate-400">Activas</p>
+          <p class="text-2xl font-black text-white">{{ activeTrackingCount }}</p>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'students'" class="space-y-4">
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+            <h2 class="font-black text-lg">Gestion de Alumnos</h2>
+            <button
+              v-if="isAdmin"
+              @click="startNewStudent"
+              class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold"
+            >
+              Nuevo alumno
+            </button>
+          </div>
+
+          <div class="mb-3">
+            <input v-model="studentQuery" placeholder="Buscar alumno por nombre, apellidos, curso o grupo" class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm" />
+          </div>
+
+          <div class="overflow-x-auto rounded-lg border border-slate-800">
+            <table class="w-full text-xs">
+              <thead class="bg-[#040914] text-slate-300">
+                <tr>
+                  <th class="p-2 text-left">Alumno</th>
+                  <th class="p-2 text-left">Curso/Grupo</th>
+                  <th class="p-2 text-left">Empresa</th>
+                  <th class="p-2 text-left">Estado</th>
+                  <th class="p-2 text-left">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in filteredStudents" :key="s.id" class="border-t border-slate-800">
+                  <td class="p-2">
+                    <div class="font-semibold">{{ s.nombre }} {{ s.apellidos }}</div>
+                    <div class="text-slate-400">{{ s.email || 'Sin email' }}</div>
+                  </td>
+                  <td class="p-2">{{ s.curso || '-' }} / {{ s.grupo || '-' }}</td>
+                  <td class="p-2">{{ companyNameById(s.empresaId) }}</td>
+                  <td class="p-2">{{ s.estado || 'pendiente' }}</td>
+                  <td class="p-2">
+                    <div class="flex gap-1">
+                      <button @click="editStudent(s)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
+                      <button v-if="isAdmin" @click="removeStudent(s)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="filteredStudents.length === 0">
+                  <td colspan="5" class="p-4 text-center text-slate-400">No hay alumnos que coincidan con la busqueda.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="studentFormOpen" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h3 class="font-bold mb-3">{{ studentForm.id ? 'Editar alumno' : 'Nuevo alumno' }}</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+            <input v-model="studentForm.nombre" placeholder="Nombre" class="field" />
+            <input v-model="studentForm.apellidos" placeholder="Apellidos" class="field" />
+            <input v-model="studentForm.dni" placeholder="DNI" class="field" />
+            <input v-model="studentForm.email" placeholder="Email" class="field" />
+            <input v-model="studentForm.telefono" placeholder="Telefono" class="field" />
+            <input v-model="studentForm.curso" placeholder="Curso" class="field" />
+            <input v-model="studentForm.grupo" placeholder="Grupo" class="field" />
+            <input v-model="studentForm.familiaProfesional" placeholder="Familia profesional" class="field" />
+            <select v-model="studentForm.empresaId" class="field">
+              <option value="">Sin empresa</option>
+              <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+            </select>
+            <select v-model="studentForm.estado" class="field">
+              <option value="pendiente">Pendiente</option>
+              <option value="asignado">Asignado</option>
+              <option value="activa">Activa</option>
+              <option value="finalizada">Finalizada</option>
+            </select>
+            <input v-model="studentForm.fechaInicio" type="date" class="field" />
+            <input v-model="studentForm.fechaFin" type="date" class="field" />
+            <input v-model.number="studentForm.horasPrevistas" type="number" min="0" placeholder="Horas previstas" class="field" />
+            <input v-model="studentForm.tutorCentro" placeholder="Tutor centro" class="field" />
+            <input v-model="studentForm.tutorEmpresa" placeholder="Tutor empresa" class="field" />
+            <textarea v-model="studentForm.observaciones" placeholder="Observaciones" class="field md:col-span-2 lg:col-span-3"></textarea>
+          </div>
+          <div class="mt-3 flex gap-2">
+            <button @click="saveStudent" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar alumno</button>
+            <button @click="cancelStudentForm" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'companies'" class="space-y-4">
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+            <h2 class="font-black text-lg">Gestion de Empresas</h2>
+            <button v-if="isAdmin" @click="startNewCompany" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nueva empresa</button>
+          </div>
+
+          <div class="mb-3">
+            <input v-model="companyQuery" placeholder="Buscar empresa por nombre, CIF o sector" class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm" />
+          </div>
+
+          <div class="overflow-x-auto rounded-lg border border-slate-800">
+            <table class="w-full text-xs">
+              <thead class="bg-[#040914] text-slate-300">
+                <tr>
+                  <th class="p-2 text-left">Empresa</th>
+                  <th class="p-2 text-left">Contacto</th>
+                  <th class="p-2 text-left">Plazas</th>
+                  <th class="p-2 text-left">Convenio</th>
+                  <th class="p-2 text-left">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="c in filteredCompanies" :key="c.id" class="border-t border-slate-800">
+                  <td class="p-2">
+                    <div class="font-semibold">{{ c.nombre }}</div>
+                    <div class="text-slate-400">{{ c.cif || 'Sin CIF' }} - {{ c.sector || '-' }}</div>
+                  </td>
+                  <td class="p-2">{{ c.contactoNombre || '-' }}<div class="text-slate-400">{{ c.contactoEmail || '-' }}</div></td>
+                  <td class="p-2">{{ c.plazasDisponibles || 0 }}</td>
+                  <td class="p-2">{{ c.convenioFirmado ? 'Firmado' : 'Pendiente' }}</td>
+                  <td class="p-2">
+                    <div class="flex gap-1">
+                      <button @click="editCompany(c)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
+                      <button v-if="isAdmin" @click="removeCompany(c)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="filteredCompanies.length === 0">
+                  <td colspan="5" class="p-4 text-center text-slate-400">No hay empresas que coincidan con la busqueda.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="companyFormOpen" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h3 class="font-bold mb-3">{{ companyForm.id ? 'Editar empresa' : 'Nueva empresa' }}</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+            <input v-model="companyForm.nombre" placeholder="Nombre" class="field" />
+            <input v-model="companyForm.cif" placeholder="CIF" class="field" />
+            <input v-model="companyForm.sector" placeholder="Sector" class="field" />
+            <input v-model="companyForm.direccion" placeholder="Direccion" class="field" />
+            <input v-model="companyForm.localidad" placeholder="Localidad" class="field" />
+            <input v-model="companyForm.contactoNombre" placeholder="Contacto" class="field" />
+            <input v-model="companyForm.contactoEmail" placeholder="Email contacto" class="field" />
+            <input v-model="companyForm.contactoTelefono" placeholder="Telefono contacto" class="field" />
+            <input v-model.number="companyForm.plazasDisponibles" type="number" min="0" placeholder="Plazas disponibles" class="field" />
+            <div class="field flex items-center gap-2">
+              <input id="convenio" type="checkbox" v-model="companyForm.convenioFirmado" />
+              <label for="convenio">Convenio firmado</label>
+            </div>
+            <input v-model="companyForm.convenioFecha" type="date" class="field" />
+            <textarea v-model="companyForm.observaciones" placeholder="Observaciones" class="field md:col-span-2 lg:col-span-3"></textarea>
+          </div>
+          <div class="mt-3 flex gap-2">
+            <button @click="saveCompany" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar empresa</button>
+            <button @click="cancelCompanyForm" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'tracking'" class="space-y-4">
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+            <h2 class="font-black text-lg">Seguimiento FFE</h2>
+            <button v-if="isAdmin" @click="startNewTracking" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nuevo seguimiento</button>
+          </div>
+
+          <div class="overflow-x-auto rounded-lg border border-slate-800">
+            <table class="w-full text-xs">
+              <thead class="bg-[#040914] text-slate-300">
+                <tr>
+                  <th class="p-2 text-left">Alumno</th>
+                  <th class="p-2 text-left">Empresa</th>
+                  <th class="p-2 text-left">Periodo</th>
+                  <th class="p-2 text-left">Horas</th>
+                  <th class="p-2 text-left">Documentacion</th>
+                  <th class="p-2 text-left">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="t in tracking" :key="t.id" class="border-t border-slate-800">
+                  <td class="p-2">{{ studentNameById(t.studentId) }}</td>
+                  <td class="p-2">{{ companyNameById(t.companyId) }}</td>
+                  <td class="p-2">{{ t.fechaInicio || '-' }} - {{ t.fechaFin || '-' }}</td>
+                  <td class="p-2">{{ t.horasRealizadas || 0 }} / {{ t.horasPlanificadas || 0 }}</td>
+                  <td class="p-2">
+                    <div class="flex flex-wrap gap-1">
+                      <span :class="docBadgeClass(t.documentacion && t.documentacion.convenio)">Convenio</span>
+                      <span :class="docBadgeClass(t.documentacion && t.documentacion.anexo)">Anexo</span>
+                      <span :class="docBadgeClass(t.documentacion && t.documentacion.evaluacionIntermedia)">Eval. intermedia</span>
+                      <span :class="docBadgeClass(t.documentacion && t.documentacion.evaluacionFinal)">Eval. final</span>
+                      <span :class="docBadgeClass(t.documentacion && t.documentacion.memoriaAlumno)">Memoria</span>
+                    </div>
+                  </td>
+                  <td class="p-2">
+                    <div class="flex gap-1">
+                      <button @click="editTracking(t)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
+                      <button v-if="isAdmin" @click="removeTracking(t)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="tracking.length === 0">
+                  <td colspan="6" class="p-4 text-center text-slate-400">No hay seguimientos registrados.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="trackingFormOpen" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h3 class="font-bold mb-3">{{ trackingForm.id ? 'Editar seguimiento' : 'Nuevo seguimiento' }}</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+            <select v-model="trackingForm.studentId" class="field">
+              <option value="">Selecciona alumno</option>
+              <option v-for="s in students" :key="s.id" :value="s.id">{{ s.nombre }} {{ s.apellidos }}</option>
+            </select>
+            <select v-model="trackingForm.companyId" class="field">
+              <option value="">Selecciona empresa</option>
+              <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+            </select>
+            <select v-model="trackingForm.estado" class="field">
+              <option value="activa">Activa</option>
+              <option value="pausada">Pausada</option>
+              <option value="finalizada">Finalizada</option>
+            </select>
+            <input v-model="trackingForm.fechaInicio" type="date" class="field" />
+            <input v-model="trackingForm.fechaFin" type="date" class="field" />
+            <input v-model.number="trackingForm.horasPlanificadas" type="number" min="0" placeholder="Horas planificadas" class="field" />
+            <input v-model.number="trackingForm.horasRealizadas" type="number" min="0" placeholder="Horas realizadas" class="field" />
+            <input v-model="trackingForm.tutorCentro" placeholder="Tutor centro" class="field" />
+            <input v-model="trackingForm.tutorEmpresa" placeholder="Tutor empresa" class="field" />
+            <textarea v-model="trackingForm.observaciones" placeholder="Observaciones" class="field md:col-span-2 lg:col-span-3"></textarea>
+          </div>
+
+          <div class="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+            <label class="doc-check"><input type="checkbox" v-model="trackingForm.documentacion.convenio" /> Convenio</label>
+            <label class="doc-check"><input type="checkbox" v-model="trackingForm.documentacion.anexo" /> Anexo</label>
+            <label class="doc-check"><input type="checkbox" v-model="trackingForm.documentacion.evaluacionIntermedia" /> Eval. intermedia</label>
+            <label class="doc-check"><input type="checkbox" v-model="trackingForm.documentacion.evaluacionFinal" /> Eval. final</label>
+            <label class="doc-check"><input type="checkbox" v-model="trackingForm.documentacion.memoriaAlumno" /> Memoria</label>
+          </div>
+
+          <div class="mt-3">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="font-semibold text-sm">Hitos de seguimiento</h4>
+              <button @click="addMilestone" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs">Agregar hito</button>
+            </div>
+            <div class="space-y-2">
+              <div v-for="(h, index) in trackingForm.hitos" :key="h.id" class="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs bg-[#040914] p-2 rounded-lg border border-slate-800">
+                <input type="date" v-model="h.fecha" class="field" />
+                <input v-model="h.tipo" placeholder="Tipo" class="field" />
+                <input v-model="h.detalle" placeholder="Detalle" class="field md:col-span-2" />
+                <div class="flex items-center gap-2">
+                  <label class="flex items-center gap-1"><input type="checkbox" v-model="h.completado" /> Completado</label>
+                  <button @click="removeMilestone(index)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Quitar</button>
+                </div>
+              </div>
+              <p v-if="trackingForm.hitos.length === 0" class="text-xs text-slate-400">Sin hitos todavia.</p>
+            </div>
+          </div>
+
+          <div class="mt-3 flex gap-2">
+            <button @click="saveTracking" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar seguimiento</button>
+            <button @click="cancelTrackingForm" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'security' && isAdmin" class="space-y-4">
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h2 class="font-black text-lg mb-3">Seguridad institucional</h2>
+          <p class="text-xs text-slate-400 mb-3">Los administradores fijos siempre tienen acceso. La allowlist controla el profesorado autorizado.</p>
+
+          <div class="mb-3">
+            <p class="text-xs font-semibold text-slate-300 mb-1">Administradores fijos</p>
+            <div class="flex flex-wrap gap-2">
+              <span v-for="email in accessControl.adminEmails" :key="email" class="px-2 py-1 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 text-xs">{{ email }}</span>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs font-semibold text-slate-300 mb-1">Profesores permitidos</p>
+            <div class="flex flex-col sm:flex-row gap-2 mb-2">
+              <input v-model="newAllowedEmail" placeholder="correo@sagrado-corazon.es" class="flex-1 px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
+              <button @click="addAllowedEmail" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Agregar</button>
+              <button @click="saveAllowedEmails" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar lista</button>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <span v-for="email in accessControl.allowedEmails" :key="email" class="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#040914] border border-slate-700 text-xs">
+                {{ email }}
+                <button @click="removeAllowedEmail(email)" class="text-red-300 hover:text-red-200"><i class="ph ph-x"></i></button>
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module">
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbxqJkfO8eui7o6qAG9LVN7PlHimw9z429cXr8FXHxqSAgTc5iZFzXoWXt1mNfoR3-KJ/exec';
+
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          driveUrl: URL_DEL_SCRIPT.includes('script.google.com') ? URL_DEL_SCRIPT : '',
+          institutionalDomain: 'sagrado-corazon.es',
+          googleClientId: 'PON_AQUI_TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
+
+          isAuthenticated: false,
+          isLoadingAuth: false,
+          currentUserEmail: '',
+          authError: '',
+          isSyncing: false,
+          lastSyncError: '',
+
+          isAdmin: false,
+          accessControl: { adminEmails: [], allowedEmails: [] },
+          newAllowedEmail: '',
+
+          students: [],
+          companies: [],
+          tracking: [],
+
+          activeTab: 'dashboard',
+          studentQuery: '',
+          companyQuery: '',
+
+          studentFormOpen: false,
+          companyFormOpen: false,
+          trackingFormOpen: false,
+
+          studentForm: {},
+          companyForm: {},
+          trackingForm: {}
+        };
+      },
+      computed: {
+        isUrlConfigured() {
+          return this.driveUrl.startsWith('https://script.google.com/');
+        },
+        navItems() {
+          const base = [
+            { key: 'dashboard', label: 'Dashboard', icon: 'ph ph-chart-bar' },
+            { key: 'students', label: 'Alumnos', icon: 'ph ph-student' },
+            { key: 'companies', label: 'Empresas', icon: 'ph ph-buildings' },
+            { key: 'tracking', label: 'Seguimiento', icon: 'ph ph-list-checks' }
+          ];
+          if (this.isAdmin) {
+            base.push({ key: 'security', label: 'Seguridad', icon: 'ph ph-shield-check' });
+          }
+          return base;
+        },
+        filteredStudents() {
+          const q = (this.studentQuery || '').toLowerCase().trim();
+          if (!q) return this.students;
+          return this.students.filter((s) => {
+            const text = `${s.nombre || ''} ${s.apellidos || ''} ${s.curso || ''} ${s.grupo || ''}`.toLowerCase();
+            return text.includes(q);
+          });
+        },
+        filteredCompanies() {
+          const q = (this.companyQuery || '').toLowerCase().trim();
+          if (!q) return this.companies;
+          return this.companies.filter((c) => {
+            const text = `${c.nombre || ''} ${c.cif || ''} ${c.sector || ''}`.toLowerCase();
+            return text.includes(q);
+          });
+        },
+        activeTrackingCount() {
+          return this.tracking.filter((t) => (t.estado || '').toLowerCase() === 'activa').length;
+        }
+      },
+      async mounted() {
+        this.startNewStudent();
+        this.startNewCompany();
+        this.startNewTracking();
+        await this.initializeInstitutionalAccess();
+        if (!this.isAuthenticated) return;
+        await this.refreshSnapshot();
+      },
+      methods: {
+        normalizeEmail(value) {
+          return (value || '').toString().trim().replace(/^"|"$/g, '').toLowerCase();
+        },
+        parseJwtPayload(token) {
+          try {
+            const parts = (token || '').split('.');
+            if (parts.length < 2) return null;
+            const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const json = decodeURIComponent(
+              atob(base64)
+                .split('')
+                .map((c) => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`)
+                .join('')
+            );
+            return JSON.parse(json);
+          } catch (err) {
+            return null;
+          }
+        },
+        validateInstitutionalCredential(credential) {
+          const payload = this.parseJwtPayload(credential);
+          if (!payload) return { valid: false, reason: 'No se pudo validar el token de autenticacion.' };
+
+          const email = this.normalizeEmail(payload.email);
+          const verified = !!payload.email_verified;
+          const domainOk = email.endsWith(`@${this.institutionalDomain}`);
+          const hd = (payload.hd || '').toLowerCase();
+          const hostedDomainOk = !hd || hd === this.institutionalDomain;
+
+          if (!verified || !domainOk || !hostedDomainOk) {
+            return { valid: false, reason: `Acceso denegado. Usa una cuenta @${this.institutionalDomain}.` };
+          }
+          return { valid: true, email };
+        },
+        getStoredIdToken() {
+          return localStorage.getItem('ffe_id_token') || '';
+        },
+        saveStoredIdToken(token) {
+          localStorage.setItem('ffe_id_token', token || '');
+        },
+        clearStoredIdToken() {
+          localStorage.removeItem('ffe_id_token');
+        },
+        getGoogleIdentityScript() {
+          return document.getElementById('google-identity-services');
+        },
+        loadGoogleIdentityScript(timeoutMs = 15000) {
+          return new Promise((resolve) => {
+            if (window.google && window.google.accounts && window.google.accounts.id) {
+              resolve(true);
+              return;
+            }
+
+            const existing = this.getGoogleIdentityScript();
+            if (existing) existing.remove();
+
+            const script = document.createElement('script');
+            script.id = 'google-identity-services';
+            script.src = `https://accounts.google.com/gsi/client?ts=${Date.now()}`;
+            script.async = true;
+            script.defer = true;
+
+            let resolved = false;
+            const finish = (ok) => {
+              if (resolved) return;
+              resolved = true;
+              script.onload = null;
+              script.onerror = null;
+              resolve(ok);
+            };
+
+            const timer = setTimeout(() => finish(false), timeoutMs);
+            script.onload = () => {
+              clearTimeout(timer);
+              finish(!!(window.google && window.google.accounts && window.google.accounts.id));
+            };
+            script.onerror = () => {
+              clearTimeout(timer);
+              finish(false);
+            };
+
+            document.head.appendChild(script);
+          });
+        },
+        async ensureGoogleLoginReady() {
+          this.isLoadingAuth = true;
+          this.authError = '';
+
+          let loaded = !!(window.google && window.google.accounts && window.google.accounts.id);
+          if (!loaded) loaded = await this.loadGoogleIdentityScript();
+
+          this.isLoadingAuth = false;
+          if (!loaded) {
+            this.authError = 'No se pudo cargar Google Identity Services. Revisa tu conexion.';
+            return false;
+          }
+
+          await this.$nextTick();
+          this.renderGoogleLoginButton();
+          return true;
+        },
+        renderGoogleLoginButton() {
+          if (!this.$refs.googleLoginBtn || !window.google || !window.google.accounts || !window.google.accounts.id) return;
+
+          this.$refs.googleLoginBtn.innerHTML = '';
+          window.google.accounts.id.initialize({
+            client_id: this.googleClientId,
+            callback: this.handleGoogleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true,
+            ux_mode: 'popup'
+          });
+
+          window.google.accounts.id.renderButton(this.$refs.googleLoginBtn, {
+            type: 'standard',
+            theme: 'filled_black',
+            size: 'large',
+            text: 'signin_with',
+            shape: 'pill',
+            width: 320
+          });
+        },
+        async initializeInstitutionalAccess() {
+          if (!this.googleClientId || this.googleClientId.includes('PON_AQUI_TU_GOOGLE_CLIENT_ID')) {
+            this.authError = 'Configura el Google Client ID.';
+            return;
+          }
+
+          const token = this.getStoredIdToken();
+          if (token) {
+            const check = this.validateInstitutionalCredential(token);
+            if (check.valid) {
+              this.currentUserEmail = check.email;
+              this.isAuthenticated = true;
+              return;
+            }
+            this.clearStoredIdToken();
+          }
+
+          await this.ensureGoogleLoginReady();
+        },
+        async handleGoogleCredentialResponse(response) {
+          const credential = response && response.credential ? response.credential : '';
+          const check = this.validateInstitutionalCredential(credential);
+          if (!check.valid) {
+            this.authError = check.reason;
+            this.isAuthenticated = false;
+            this.currentUserEmail = '';
+            this.clearStoredIdToken();
+            return;
+          }
+
+          this.saveStoredIdToken(credential);
+          this.currentUserEmail = check.email;
+          this.isAuthenticated = true;
+          this.authError = '';
+          await this.refreshSnapshot();
+        },
+        async logoutInstitutionalSession() {
+          this.isAuthenticated = false;
+          this.currentUserEmail = '';
+          this.isAdmin = false;
+          this.clearStoredIdToken();
+          if (window.google && window.google.accounts && window.google.accounts.id) {
+            window.google.accounts.id.disableAutoSelect();
+          }
+          await this.ensureGoogleLoginReady();
+        },
+        mapServerAuthError(code) {
+          if (code === 'EMAIL_NOT_ALLOWED') return 'Tu cuenta no tiene permiso para usar esta aplicacion.';
+          if (code === 'TOKEN_REQUIRED') return 'Sesion caducada. Inicia sesion de nuevo.';
+          if (code === 'INVALID_TOKEN' || code === 'TOKENINFO_HTTP_400') return 'Token invalido. Vuelve a iniciar sesion.';
+          if (code === 'INVALID_DOMAIN' || code === 'INVALID_HOSTED_DOMAIN') return `Usa una cuenta @${this.institutionalDomain}.`;
+          return 'No se pudo validar tu acceso.';
+        },
+        async postToServer(action, payload = {}) {
+          if (!this.isUrlConfigured) throw new Error('URL_SCRIPT_NOT_CONFIGURED');
+
+          const idToken = this.getStoredIdToken();
+          const response = await fetch(this.driveUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, payload, idToken, t: Date.now() })
+          });
+
+          const text = await response.text();
+          let data;
+          try {
+            data = JSON.parse(text || '{}');
+          } catch (err) {
+            throw new Error(`NON_JSON_${response.status}`);
+          }
+
+          if (!data.success) {
+            throw new Error(data.error || 'SERVER_ERROR');
+          }
+          return data;
+        },
+        async refreshSnapshot() {
+          if (!this.isAuthenticated) return;
+
+          this.isSyncing = true;
+          this.lastSyncError = '';
+          try {
+            const data = await this.postToServer('read', {});
+            this.students = Array.isArray(data.students) ? data.students : [];
+            this.companies = Array.isArray(data.companies) ? data.companies : [];
+            this.tracking = Array.isArray(data.tracking) ? data.tracking : [];
+            this.accessControl = data.accessControl || { adminEmails: [], allowedEmails: [] };
+            this.isAdmin = !!(data.user && data.user.isAdmin);
+          } catch (err) {
+            const code = (err && err.message) ? err.message : 'READ_FAILED';
+            this.lastSyncError = `Fallo leyendo Drive: ${code}`;
+            if (['EMAIL_NOT_ALLOWED', 'TOKEN_REQUIRED', 'INVALID_TOKEN', 'TOKENINFO_HTTP_400', 'INVALID_DOMAIN', 'INVALID_HOSTED_DOMAIN'].includes(code)) {
+              this.authError = this.mapServerAuthError(code);
+              await this.logoutInstitutionalSession();
+            }
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        companyNameById(id) {
+          const c = this.companies.find((x) => x.id === id);
+          return c ? c.nombre : 'Sin empresa';
+        },
+        studentNameById(id) {
+          const s = this.students.find((x) => x.id === id);
+          return s ? `${s.nombre || ''} ${s.apellidos || ''}`.trim() : 'Alumno no encontrado';
+        },
+        docBadgeClass(ok) {
+          return ok
+            ? 'px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-200'
+            : 'px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400';
+        },
+
+        startNewStudent() {
+          this.studentFormOpen = false;
+          this.studentForm = {
+            id: '', nombre: '', apellidos: '', dni: '', email: '', telefono: '', curso: '', grupo: '',
+            familiaProfesional: '', empresaId: '', estado: 'pendiente', fechaInicio: '', fechaFin: '',
+            horasPrevistas: 0, tutorCentro: '', tutorEmpresa: '', observaciones: ''
+          };
+        },
+        editStudent(s) {
+          this.studentForm = { ...this.studentForm, ...JSON.parse(JSON.stringify(s || {})) };
+          this.studentFormOpen = true;
+          this.activeTab = 'students';
+        },
+        startNewCompany() {
+          this.companyFormOpen = false;
+          this.companyForm = {
+            id: '', nombre: '', cif: '', sector: '', direccion: '', localidad: '', contactoNombre: '',
+            contactoEmail: '', contactoTelefono: '', plazasDisponibles: 0, convenioFirmado: false,
+            convenioFecha: '', observaciones: ''
+          };
+        },
+        editCompany(c) {
+          this.companyForm = { ...this.companyForm, ...JSON.parse(JSON.stringify(c || {})) };
+          this.companyFormOpen = true;
+          this.activeTab = 'companies';
+        },
+        startNewTracking() {
+          this.trackingFormOpen = false;
+          this.trackingForm = {
+            id: '', studentId: '', companyId: '', estado: 'activa', tutorCentro: '', tutorEmpresa: '',
+            fechaInicio: '', fechaFin: '', horasPlanificadas: 0, horasRealizadas: 0,
+            documentacion: {
+              convenio: false, anexo: false, evaluacionIntermedia: false, evaluacionFinal: false, memoriaAlumno: false
+            },
+            hitos: [], observaciones: ''
+          };
+        },
+        editTracking(t) {
+          const copy = JSON.parse(JSON.stringify(t || {}));
+          if (!copy.documentacion) {
+            copy.documentacion = { convenio: false, anexo: false, evaluacionIntermedia: false, evaluacionFinal: false, memoriaAlumno: false };
+          }
+          if (!Array.isArray(copy.hitos)) copy.hitos = [];
+          this.trackingForm = { ...this.trackingForm, ...copy };
+          this.trackingFormOpen = true;
+          this.activeTab = 'tracking';
+        },
+        cancelStudentForm() {
+          this.studentFormOpen = false;
+          this.startNewStudent();
+        },
+        cancelCompanyForm() {
+          this.companyFormOpen = false;
+          this.startNewCompany();
+        },
+        cancelTrackingForm() {
+          this.trackingFormOpen = false;
+          this.startNewTracking();
+        },
+        addMilestone() {
+          this.trackingForm.hitos.push({ id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`, fecha: '', tipo: '', detalle: '', completado: false });
+        },
+        removeMilestone(index) {
+          this.trackingForm.hitos.splice(index, 1);
+        },
+
+        async saveStudent() {
+          if (!this.isAdmin) return;
+          this.isSyncing = true;
+          this.lastSyncError = '';
+          try {
+            const data = await this.postToServer('upsert_student', this.studentForm);
+            this.upsertLocal(this.students, data.student, 'id');
+            this.studentFormOpen = false;
+            this.startNewStudent();
+          } catch (err) {
+            this.lastSyncError = `Fallo guardando alumno: ${err.message || 'ERROR'}`;
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        async removeStudent(s) {
+          if (!this.isAdmin) return;
+          if (!confirm(`Eliminar alumno ${s.nombre} ${s.apellidos}?`)) return;
+          this.isSyncing = true;
+          try {
+            await this.postToServer('delete_student', { id: s.id });
+            this.students = this.students.filter((x) => x.id !== s.id);
+            this.tracking = this.tracking.filter((x) => x.studentId !== s.id);
+          } catch (err) {
+            this.lastSyncError = `Fallo eliminando alumno: ${err.message || 'ERROR'}`;
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        async saveCompany() {
+          if (!this.isAdmin) return;
+          this.isSyncing = true;
+          this.lastSyncError = '';
+          try {
+            const data = await this.postToServer('upsert_company', this.companyForm);
+            this.upsertLocal(this.companies, data.company, 'id');
+            this.companyFormOpen = false;
+            this.startNewCompany();
+          } catch (err) {
+            this.lastSyncError = `Fallo guardando empresa: ${err.message || 'ERROR'}`;
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        async removeCompany(c) {
+          if (!this.isAdmin) return;
+          if (!confirm(`Eliminar empresa ${c.nombre}?`)) return;
+          this.isSyncing = true;
+          try {
+            await this.postToServer('delete_company', { id: c.id });
+            this.companies = this.companies.filter((x) => x.id !== c.id);
+            this.students = this.students.map((s) => ({ ...s, empresaId: s.empresaId === c.id ? '' : s.empresaId }));
+          } catch (err) {
+            this.lastSyncError = `Fallo eliminando empresa: ${err.message || 'ERROR'}`;
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        async saveTracking() {
+          if (!this.isAdmin) return;
+          this.isSyncing = true;
+          this.lastSyncError = '';
+          try {
+            const data = await this.postToServer('upsert_tracking', this.trackingForm);
+            this.upsertLocal(this.tracking, data.tracking, 'id');
+            this.trackingFormOpen = false;
+            this.startNewTracking();
+          } catch (err) {
+            this.lastSyncError = `Fallo guardando seguimiento: ${err.message || 'ERROR'}`;
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        async removeTracking(t) {
+          if (!this.isAdmin) return;
+          if (!confirm('Eliminar seguimiento seleccionado?')) return;
+          this.isSyncing = true;
+          try {
+            await this.postToServer('delete_tracking', { id: t.id });
+            this.tracking = this.tracking.filter((x) => x.id !== t.id);
+          } catch (err) {
+            this.lastSyncError = `Fallo eliminando seguimiento: ${err.message || 'ERROR'}`;
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        addAllowedEmail() {
+          const email = this.normalizeEmail(this.newAllowedEmail);
+          if (!email) return;
+          if (!email.endsWith(`@${this.institutionalDomain}`)) {
+            this.lastSyncError = `Solo se permiten cuentas @${this.institutionalDomain}`;
+            return;
+          }
+          if (!this.accessControl.allowedEmails.includes(email)) {
+            this.accessControl.allowedEmails.push(email);
+            this.accessControl.allowedEmails.sort((a, b) => a.localeCompare(b));
+          }
+          this.newAllowedEmail = '';
+        },
+        removeAllowedEmail(email) {
+          this.accessControl.allowedEmails = this.accessControl.allowedEmails.filter((e) => e !== email);
+        },
+        async saveAllowedEmails() {
+          if (!this.isAdmin) return;
+          this.isSyncing = true;
+          try {
+            const data = await this.postToServer('set_allowed_emails', { allowedEmails: this.accessControl.allowedEmails });
+            this.accessControl = data.accessControl || this.accessControl;
+          } catch (err) {
+            this.lastSyncError = `Fallo guardando allowlist: ${err.message || 'ERROR'}`;
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        upsertLocal(arr, item, key) {
+          const idx = arr.findIndex((x) => x[key] === item[key]);
+          if (idx >= 0) arr[idx] = item;
+          else arr.push(item);
+        }
+      }
+    }).mount('#app');
+  </script>
+
+  <style>
+    .field {
+      width: 100%;
+      border: 1px solid rgb(51 65 85);
+      border-radius: 0.5rem;
+      background: #040914;
+      color: rgb(226 232 240);
+      padding: 0.5rem 0.75rem;
+      outline: none;
+    }
+    .field:focus {
+      border-color: rgb(59 130 246);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+    }
+    .doc-check {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: #040914;
+      border: 1px solid rgb(51 65 85);
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      color: rgb(203 213 225);
+    }
+  </style>
+</body>
+</html>
