@@ -539,9 +539,9 @@
         }
       },
       async mounted() {
-        this.startNewStudent();
-        this.startNewCompany();
-        this.startNewTracking();
+        this.startNewStudent(false);
+        this.startNewCompany(false);
+        this.startNewTracking(false);
         await this.initializeInstitutionalAccess();
         if (!this.isAuthenticated) return;
         await this.refreshSnapshot();
@@ -1013,8 +1013,8 @@
             : 'px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400';
         },
 
-        startNewStudent() {
-          this.studentFormOpen = false;
+        startNewStudent(openForm = true) {
+          this.studentFormOpen = !!openForm;
           this.studentForm = {
             id: '', nombre: '', apellidos: '', dni: '', email: '', telefono: '', curso: '', grupo: '',
             familiaProfesional: '', empresaId: '', estado: 'pendiente', fechaInicio: '', fechaFin: '',
@@ -1026,8 +1026,8 @@
           this.studentFormOpen = true;
           this.activeTab = 'students';
         },
-        startNewCompany() {
-          this.companyFormOpen = false;
+        startNewCompany(openForm = true) {
+          this.companyFormOpen = !!openForm;
           this.companyForm = {
             id: '', nombre: '', cif: '', sector: '', direccion: '', localidad: '', contactoNombre: '',
             contactoEmail: '', contactoTelefono: '', plazasDisponibles: 0, convenioFirmado: false,
@@ -1039,8 +1039,8 @@
           this.companyFormOpen = true;
           this.activeTab = 'companies';
         },
-        startNewTracking() {
-          this.trackingFormOpen = false;
+        startNewTracking(openForm = true) {
+          this.trackingFormOpen = !!openForm;
           this.trackingForm = {
             id: '', studentId: '', companyId: '', estado: 'activa', tutorCentro: '', tutorEmpresa: '',
             fechaInicio: '', fechaFin: '', horasPlanificadas: 0, horasRealizadas: 0,
@@ -1061,16 +1061,13 @@
           this.activeTab = 'tracking';
         },
         cancelStudentForm() {
-          this.studentFormOpen = false;
-          this.startNewStudent();
+          this.startNewStudent(false);
         },
         cancelCompanyForm() {
-          this.companyFormOpen = false;
-          this.startNewCompany();
+          this.startNewCompany(false);
         },
         cancelTrackingForm() {
-          this.trackingFormOpen = false;
-          this.startNewTracking();
+          this.startNewTracking(false);
         },
         addMilestone() {
           this.trackingForm.hitos.push({ id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`, fecha: '', tipo: '', detalle: '', completado: false });
@@ -1086,8 +1083,7 @@
           try {
             const data = await this.postToServer('upsert_student', this.studentForm);
             this.upsertLocal(this.students, data.student, 'id');
-            this.studentFormOpen = false;
-            this.startNewStudent();
+            this.startNewStudent(false);
           } catch (err) {
             this.lastSyncError = `Fallo guardando alumno: ${err.message || 'ERROR'}`;
           } finally {
@@ -1115,8 +1111,7 @@
           try {
             const data = await this.postToServer('upsert_company', this.companyForm);
             this.upsertLocal(this.companies, data.company, 'id');
-            this.companyFormOpen = false;
-            this.startNewCompany();
+            this.startNewCompany(false);
           } catch (err) {
             this.lastSyncError = `Fallo guardando empresa: ${err.message || 'ERROR'}`;
           } finally {
@@ -1144,8 +1139,7 @@
           try {
             const data = await this.postToServer('upsert_tracking', this.trackingForm);
             this.upsertLocal(this.tracking, data.tracking, 'id');
-            this.trackingFormOpen = false;
-            this.startNewTracking();
+            this.startNewTracking(false);
           } catch (err) {
             this.lastSyncError = `Fallo guardando seguimiento: ${err.message || 'ERROR'}`;
           } finally {
