@@ -322,7 +322,7 @@
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
             <h2 class="font-black text-lg">Seguimiento FFE</h2>
-            <button v-if="isAdmin" @click="startNewTracking" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nuevo seguimiento</button>
+            <button v-if="canManageMasterData" @click="startNewTracking" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nuevo seguimiento</button>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -355,6 +355,14 @@
                   <td class="p-2">
                     <div class="flex gap-1">
                       <button @click="editTracking(t)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
+                      <button v-if="canManageMasterData" @click="generateConvenioPdf(t)" class="px-2 py-1 rounded bg-emerald-900/40 border border-emerald-700 text-emerald-200">Generar convenio PDF</button>
+                      <a
+                        v-if="t.documentacion && t.documentacion.convenioPdf && t.documentacion.convenioPdf.url"
+                        :href="t.documentacion.convenioPdf.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="px-2 py-1 rounded bg-sky-900/40 border border-sky-700 text-sky-200"
+                      >Abrir PDF</a>
                       <button v-if="isAdmin" @click="removeTracking(t)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
                     </div>
                   </td>
@@ -420,7 +428,7 @@
           </div>
 
           <div class="mt-3 flex gap-2">
-            <button @click="saveTracking" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar seguimiento</button>
+            <button v-if="canManageMasterData" @click="saveTracking" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar seguimiento</button>
             <button @click="cancelTrackingForm" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
           </div>
         </div>
@@ -453,13 +461,44 @@
               </span>
             </div>
           </div>
+
+          <div class="mt-5 pt-4 border-t border-slate-800">
+            <h3 class="text-sm font-bold text-slate-200 mb-2">Documentacion de convenio</h3>
+            <p class="text-xs text-slate-400 mb-3">Configura aqui los datos globales (centro educativo, representante, etc.) y la plantilla base de Google Docs.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mb-3">
+              <input v-model="docSettingsForm.templateDocId" placeholder="ID o enlace de Google Docs plantilla" class="field" />
+              <input v-model="docSettingsForm.outputFolderId" placeholder="ID o enlace carpeta destino PDFs" class="field" />
+            </div>
+
+            <label class="text-xs text-slate-300 font-semibold mb-1 block">Campos globales (uno por linea, formato CLAVE=valor)</label>
+            <textarea
+              v-model="docSettingsGlobalText"
+              class="field min-h-[140px]"
+              placeholder="CENTRO_NOMBRE=Centro Sagrado Corazon&#10;CENTRO_DIRECCION=Calle ...&#10;REPRESENTANTE_CENTRO=Nombre Apellidos"
+            ></textarea>
+
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button @click="saveDocSettings" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar configuracion convenio</button>
+              <button @click="scanTemplatePlaceholders" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Leer campos del modelo real</button>
+            </div>
+
+            <div v-if="templatePlaceholdersRaw.length" class="mt-3 p-3 rounded-lg bg-[#040914] border border-slate-800">
+              <p class="text-xs font-semibold text-slate-300 mb-2">Campos detectados en plantilla (&lt;...&gt;)</p>
+              <div class="flex flex-wrap gap-2">
+                <span v-for="tag in templatePlaceholdersRaw" :key="tag" class="px-2 py-1 rounded border border-slate-700 text-xs text-slate-200 bg-slate-900">&lt;{{ tag }}&gt;</span>
+              </div>
+            </div>
+
+            <p class="text-xs text-slate-500 mt-3">Marcadores en la plantilla: usa etiquetas como &lt;ALUMNO_NOMBRE_COMPLETO&gt;, &lt;EMPRESA_NOMBRE&gt;, &lt;FFE_FECHA_INICIO&gt; o tus propias claves globales.</p>
+          </div>
         </div>
       </section>
     </div>
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbyFPl3ihhLr9VYOVJk3GFZZAaP8LDUNZ7T2Cv3-BaDG49AAwW0LE-ZqDJDcI0-I4epP/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzpDKBhViSpixWNuQ40_o6aA4T0K1IBiKIzK5qoIzz080ALuIz-SfmN8wxrntbwHlnf/exec';
                             
     const { createApp } = Vue;
 
@@ -480,6 +519,10 @@
           isAdmin: false,
           accessControl: { adminEmails: [], allowedEmails: [] },
           newAllowedEmail: '',
+          docSettings: { templateDocId: '', outputFolderId: '', globalFields: {} },
+          docSettingsForm: { templateDocId: '', outputFolderId: '' },
+          docSettingsGlobalText: '',
+          templatePlaceholdersRaw: [],
 
           students: [],
           companies: [],
@@ -611,6 +654,39 @@
         parseCsvNumber(value) {
           const n = Number((value || '').toString().trim().replace(',', '.'));
           return Number.isFinite(n) ? n : 0;
+        },
+        formatGlobalFieldsForEditor(fields) {
+          const obj = (fields && typeof fields === 'object') ? fields : {};
+          return Object.keys(obj)
+            .sort((a, b) => a.localeCompare(b))
+            .map((key) => `${key}=${obj[key] || ''}`)
+            .join('\n');
+        },
+        parseGlobalFieldsFromEditor(text) {
+          const out = {};
+          const lines = (text || '').split(/\r?\n/);
+          lines.forEach((line) => {
+            const trimmed = (line || '').trim();
+            if (!trimmed || trimmed.startsWith('#')) return;
+            const idx = trimmed.indexOf('=');
+            if (idx <= 0) return;
+            const key = trimmed.slice(0, idx).trim();
+            const value = trimmed.slice(idx + 1).trim();
+            if (!key) return;
+            out[key] = value;
+          });
+          return out;
+        },
+        applyDocSettingsFromSnapshot(settings) {
+          const s = settings && typeof settings === 'object' ? settings : {};
+          this.docSettings = {
+            templateDocId: s.templateDocId || '',
+            outputFolderId: s.outputFolderId || '',
+            globalFields: (s.globalFields && typeof s.globalFields === 'object') ? s.globalFields : {}
+          };
+          this.docSettingsForm.templateDocId = this.docSettings.templateDocId;
+          this.docSettingsForm.outputFolderId = this.docSettings.outputFolderId;
+          this.docSettingsGlobalText = this.formatGlobalFieldsForEditor(this.docSettings.globalFields);
         },
         downloadTextFile(filename, content) {
           const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
@@ -987,6 +1063,7 @@
             this.companies = Array.isArray(data.companies) ? data.companies : [];
             this.tracking = Array.isArray(data.tracking) ? data.tracking : [];
             this.accessControl = data.accessControl || { adminEmails: [], allowedEmails: [] };
+            this.applyDocSettingsFromSnapshot(data.docSettings || {});
             this.isAdmin = !!(data.user && data.user.isAdmin);
           } catch (err) {
             const code = (err && err.message) ? err.message : 'READ_FAILED';
@@ -1133,7 +1210,7 @@
           }
         },
         async saveTracking() {
-          if (!this.isAdmin) return;
+          if (!this.canManageMasterData) return;
           this.isSyncing = true;
           this.lastSyncError = '';
           try {
@@ -1183,6 +1260,60 @@
             this.accessControl = data.accessControl || this.accessControl;
           } catch (err) {
             this.lastSyncError = `Fallo guardando allowlist: ${err.message || 'ERROR'}`;
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        async saveDocSettings() {
+          if (!this.isAdmin) return;
+          this.isSyncing = true;
+          try {
+            const payload = {
+              templateDocId: this.docSettingsForm.templateDocId,
+              outputFolderId: this.docSettingsForm.outputFolderId,
+              globalFields: this.parseGlobalFieldsFromEditor(this.docSettingsGlobalText)
+            };
+            const data = await this.postToServer('set_doc_settings', payload);
+            this.applyDocSettingsFromSnapshot(data.docSettings || payload);
+            this.lastSyncError = 'Configuracion de convenio guardada correctamente.';
+          } catch (err) {
+            this.lastSyncError = `Fallo guardando configuracion de convenio: ${err.message || 'ERROR'}`;
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        async scanTemplatePlaceholders() {
+          if (!this.isAdmin) return;
+          this.isSyncing = true;
+          try {
+            const data = await this.postToServer('preview_template_placeholders', {
+              templateDocId: this.docSettingsForm.templateDocId
+            });
+            this.templatePlaceholdersRaw = Array.isArray(data.placeholdersRaw) ? data.placeholdersRaw : [];
+            this.lastSyncError = this.templatePlaceholdersRaw.length
+              ? `Campos detectados: ${this.templatePlaceholdersRaw.length}`
+              : 'No se detectaron campos <...> en la plantilla.';
+          } catch (err) {
+            this.lastSyncError = `No se pudo leer el modelo real: ${err.message || 'ERROR'}`;
+          } finally {
+            this.isSyncing = false;
+          }
+        },
+        async generateConvenioPdf(trackingRecord) {
+          if (!this.canManageMasterData) return;
+          const trackingId = trackingRecord && trackingRecord.id ? trackingRecord.id : '';
+          if (!trackingId) return;
+
+          this.isSyncing = true;
+          try {
+            const data = await this.postToServer('generate_convenio_pdf', { trackingId });
+            if (data && data.tracking) {
+              this.upsertLocal(this.tracking, data.tracking, 'id');
+            }
+            const pdfUrl = data && data.convenioPdf && data.convenioPdf.url ? data.convenioPdf.url : '';
+            this.lastSyncError = pdfUrl ? `Convenio generado correctamente: ${pdfUrl}` : 'Convenio generado correctamente.';
+          } catch (err) {
+            this.lastSyncError = `Fallo generando convenio PDF: ${err.message || 'ERROR'}`;
           } finally {
             this.isSyncing = false;
           }
