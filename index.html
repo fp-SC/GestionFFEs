@@ -17,18 +17,16 @@
     }
     .spinner { animation: spin 1s linear infinite; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
-    .bg-glow-blue {
-      filter: blur(140px);
-      background: radial-gradient(circle, rgba(2,84,199,.16) 0%, rgba(0,0,0,0) 70%);
+    .bg-glow-blue { filter: blur(140px); background: radial-gradient(circle, rgba(2,84,199,.16) 0%, rgba(0,0,0,0) 70%); }
+    .bg-glow-red { filter: blur(140px); background: radial-gradient(circle, rgba(223,26,26,.15) 0%, rgba(0,0,0,0) 70%); }
+    .bg-glow-gold { filter: blur(140px); background: radial-gradient(circle, rgba(234,179,8,.08) 0%, rgba(0,0,0,0) 70%); }
+    .field {
+      width: 100%; border: 1px solid rgb(51 65 85); border-radius: .5rem;
+      background: #040914; color: rgb(226 232 240); padding: .5rem .75rem; outline: none;
     }
-    .bg-glow-red {
-      filter: blur(140px);
-      background: radial-gradient(circle, rgba(223,26,26,.15) 0%, rgba(0,0,0,0) 70%);
-    }
-    .bg-glow-gold {
-      filter: blur(140px);
-      background: radial-gradient(circle, rgba(234,179,8,.08) 0%, rgba(0,0,0,0) 70%);
-    }
+    .field:focus { border-color: rgb(59 130 246); box-shadow: 0 0 0 2px rgba(59,130,246,.25); }
+    .field-label { display:block; font-size: 10px; font-weight: 700; color: rgb(148 163 184); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .03em; }
+    .doc-check { display:flex; align-items:center; gap:.35rem; background:#040914; border:1px solid rgb(51 65 85); border-radius:.5rem; padding:.5rem; color: rgb(203 213 225); }
   </style>
 </head>
 <body class="text-slate-100 antialiased p-3 md:p-6 min-h-screen relative overflow-x-hidden">
@@ -37,7 +35,9 @@
   <div class="absolute top-1/2 left-1/3 w-[260px] h-[260px] bg-glow-gold pointer-events-none -z-10"></div>
 
   <div id="app" v-cloak class="max-w-7xl mx-auto">
-    <div v-if="!isAuthenticated" class="fixed inset-0 z-50 bg-[#03060f]/95 backdrop-blur-sm flex items-center justify-center p-4">
+
+    <!-- ============ PANTALLA DE LOGIN: es LO UNICO que existe hasta autenticar ============ -->
+    <div v-if="!isAuthenticated" class="min-h-screen flex items-center justify-center p-4">
       <div class="w-full max-w-xl bg-[#070e1e] border border-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 text-center">
         <h2 class="text-3xl font-black text-white mb-2">Acceso Restringido</h2>
         <p class="text-slate-300 mb-2">Debes iniciar sesion con tu cuenta institucional.</p>
@@ -46,25 +46,19 @@
         <div ref="googleLoginBtn" class="flex justify-center min-h-[44px]"></div>
 
         <div v-if="isLoadingAuth" class="mt-4 text-slate-300 text-sm flex items-center justify-center gap-2">
-          <i class="ph ph-spinner spinner"></i>
-          Cargando acceso institucional...
+          <i class="ph ph-spinner spinner"></i> Cargando acceso institucional...
         </div>
 
-        <p v-if="authError" class="mt-5 text-red-300 text-sm bg-red-950/30 border border-red-800/40 rounded-lg p-3">
-          {{ authError }}
-        </p>
+        <p v-if="authError" class="mt-5 text-red-300 text-sm bg-red-950/30 border border-red-800/40 rounded-lg p-3">{{ authError }}</p>
 
-        <button
-          type="button"
-          @click="ensureGoogleLoginReady"
-          class="mt-4 px-4 py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-sm font-bold"
-        >
+        <button type="button" @click="ensureGoogleLoginReady" class="mt-4 px-4 py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-sm font-bold">
           Reintentar carga de Google
         </button>
       </div>
     </div>
 
-    <div :class="!isAuthenticated ? 'pointer-events-none select-none blur-[2px]' : ''">
+    <!-- ============ APP: solo existe una vez autenticado ============ -->
+    <div v-else>
       <header class="mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#070e1e]/90 p-5 rounded-2xl border border-slate-800 shadow-2xl">
         <div class="flex items-center gap-4">
           <div class="w-14 h-14 rounded-xl bg-[#040914] border border-slate-700 flex items-center justify-center">
@@ -77,28 +71,19 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <div class="px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-200 font-semibold max-w-[280px] truncate">
-            {{ currentUserEmail || 'Sin usuario' }}
-          </div>
-          <div v-if="isAdmin" class="px-3 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-xs font-bold text-indigo-200">
-            Perfil Admin
-          </div>
+          <div class="px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-200 font-semibold max-w-[280px] truncate">{{ currentUserEmail }}</div>
+          <div v-if="isAdmin" class="px-3 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-xs font-bold text-indigo-200">Perfil Admin</div>
           <div class="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-bold text-emerald-300 flex items-center gap-1">
-            <i v-if="isSyncing" class="ph ph-spinner spinner"></i>
-            <i v-else class="ph ph-cloud-check"></i>
+            <i v-if="isSyncing" class="ph ph-spinner spinner"></i><i v-else class="ph ph-cloud-check"></i>
             {{ isSyncing ? 'Sincronizando...' : 'Sincronizado' }}
           </div>
-          <button @click="refreshSnapshot" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold">
-            Recargar
-          </button>
-          <button @click="logoutInstitutionalSession" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold">
-            Cerrar sesion
-          </button>
+          <button @click="refreshSnapshot" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold">Recargar</button>
+          <button @click="logoutInstitutionalSession" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold">Cerrar sesion</button>
         </div>
       </header>
 
       <div v-if="lastSyncError" class="mb-4 bg-amber-950/40 border border-amber-700/60 text-amber-200 rounded-xl p-3 text-xs">
-        <div class="font-bold mb-1">Diagnostico de sincronizacion</div>
+        <div class="font-bold mb-1">Aviso</div>
         <div>{{ lastSyncError }}</div>
       </div>
 
@@ -107,84 +92,98 @@
       </div>
 
       <nav class="mb-5 bg-[#070e1e]/90 rounded-2xl border border-slate-800 p-2 flex flex-wrap gap-2">
-        <button
-          v-for="item in navItems"
-          :key="item.key"
-          @click="activeTab = item.key"
+        <button v-for="item in navItems" :key="item.key" @click="activeTab = item.key"
           :class="activeTab === item.key ? 'bg-blue-600 text-white' : 'bg-[#040914] text-slate-300 border border-slate-700'"
-          class="px-3 py-2 rounded-lg text-xs font-bold transition"
-        >
+          class="px-3 py-2 rounded-lg text-xs font-bold transition">
           <i :class="item.icon"></i> {{ item.label }}
         </button>
       </nav>
 
-      <section v-if="activeTab === 'dashboard'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <p class="text-xs text-slate-400">Alumnos</p>
-          <p class="text-2xl font-black text-white">{{ students.length }}</p>
+      <!-- ================= RESUMEN POR FAMILIA PROFESIONAL ================= -->
+      <section v-if="activeTab === 'dashboard'" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">Alumnos</p><p class="text-2xl font-black text-white">{{ students.length }}</p>
+          </div>
+          <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">Empresas</p><p class="text-2xl font-black text-white">{{ companies.length }}</p>
+          </div>
+          <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">Documentos generados</p><p class="text-2xl font-black text-white">{{ documents.length }}</p>
+          </div>
+          <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">FFE activas</p><p class="text-2xl font-black text-white">{{ activeFfeCount }}</p>
+          </div>
         </div>
+
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <p class="text-xs text-slate-400">Empresas</p>
-          <p class="text-2xl font-black text-white">{{ companies.length }}</p>
-        </div>
-        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <p class="text-xs text-slate-400">Seguimientos</p>
-          <p class="text-2xl font-black text-white">{{ tracking.length }}</p>
-        </div>
-        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <p class="text-xs text-slate-400">Activas</p>
-          <p class="text-2xl font-black text-white">{{ activeTrackingCount }}</p>
+          <h2 class="font-black text-lg mb-1">Resumen por Familia Profesional</h2>
+          <p class="text-xs text-slate-400 mb-4">Empresas y alumnado agrupados por familia profesional.</p>
+
+          <div v-for="grupo in resumenPorFamilia" :key="grupo.familia" class="mb-4">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="ph ph-graduation-cap text-blue-400"></i>
+              <h3 class="font-bold text-white">{{ grupo.familia }}</h3>
+              <span class="text-xs text-slate-400">({{ grupo.totalAlumnos }} alumno/s, {{ grupo.empresas.length }} empresa/s)</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div v-for="emp in grupo.empresas" :key="emp.empresaId" class="bg-[#040914] border border-slate-800 rounded-lg p-3">
+                <p class="font-semibold text-sm text-sky-200">{{ emp.empresaNombre }}</p>
+                <ul class="mt-1 text-xs text-slate-300 space-y-0.5">
+                  <li v-for="al in emp.alumnos" :key="al.id" class="flex justify-between gap-2">
+                    <span>{{ al.Nombre_Alumno }} {{ al.Apellidos_Alumno }}</span>
+                    <span class="text-slate-500">{{ al.Estado_FFE || 'pendiente' }}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <p v-if="resumenPorFamilia.length === 0" class="text-sm text-slate-400">Todavia no hay alumnado registrado.</p>
         </div>
       </section>
 
+      <!-- ================= ALUMNOS ================= -->
       <section v-if="activeTab === 'students'" class="space-y-4">
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
             <h2 class="font-black text-lg">Gestion de Alumnos</h2>
-            <button
-              v-if="canManageMasterData"
-              @click="startNewStudent"
-              class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold"
-            >
-              Nuevo alumno
-            </button>
+            <button @click="startNewStudent" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nuevo alumno</button>
           </div>
 
-          <div class="mb-3">
-            <input v-model="studentQuery" placeholder="Buscar alumno por nombre, apellidos, curso o grupo" class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm" />
-          </div>
+          <div class="mb-3"><input v-model="studentQuery" placeholder="Buscar alumno por nombre, apellidos, curso, grupo o familia" class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm" /></div>
 
-          <div v-if="canManageMasterData" class="mb-3 flex flex-wrap gap-2 items-center">
-            <button @click="downloadStudentsTemplateCsv" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">
-              Descargar plantilla CSV alumnado
-            </button>
+          <div class="mb-3 flex flex-wrap gap-2 items-center">
+            <button @click="downloadStudentsTemplateCsv" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Descargar plantilla CSV alumnado</button>
             <label class="px-3 py-2 rounded-lg bg-blue-900/40 border border-blue-700 text-xs font-bold cursor-pointer">
               Subir CSV alumnado
               <input type="file" accept=".csv,text/csv" class="hidden" @change="importStudentsFromCsv" />
             </label>
-            <span class="text-xs text-slate-400">Puedes rellenar la plantilla con Excel y guardarla como CSV UTF-8.</span>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
             <table class="w-full text-xs">
               <thead class="bg-[#040914] text-slate-300">
                 <tr>
-                  <th class="p-2 text-left">Alumno</th>
-                  <th class="p-2 text-left">Curso/Grupo</th>
+                  <th class="p-2 text-left">Alumno/a</th>
+                  <th class="p-2 text-left">Curso/Grupo/Familia</th>
                   <th class="p-2 text-left">Empresa</th>
-                  <th class="p-2 text-left">Estado</th>
+                  <th class="p-2 text-left">Estado FFE</th>
+                  <th class="p-2 text-left">Documentos</th>
                   <th class="p-2 text-left">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="s in filteredStudents" :key="s.id" class="border-t border-slate-800">
                   <td class="p-2">
-                    <div class="font-semibold">{{ s.nombre }} {{ s.apellidos }}</div>
-                    <div class="text-slate-400">{{ s.email || 'Sin email' }}</div>
+                    <div class="font-semibold">{{ s.Nombre_Alumno }} {{ s.Apellidos_Alumno }}</div>
+                    <div class="text-slate-400">{{ s.DNI_Alumno || 'Sin DNI' }} · {{ s.Email_Alumno || 'Sin email' }}</div>
                   </td>
-                  <td class="p-2">{{ s.curso || '-' }} / {{ s.grupo || '-' }}</td>
-                  <td class="p-2">{{ companyNameById(s.empresaId) }}</td>
-                  <td class="p-2">{{ s.estado || 'pendiente' }}</td>
+                  <td class="p-2">{{ s.Curso_Alumno || '-' }} / {{ s.Grupo_Alumno || '-' }}<div class="text-slate-400">{{ s.Familia_Profesional || 'Sin familia' }}</div></td>
+                  <td class="p-2">{{ companyNameById(s.EmpresaId) }}<div class="text-slate-400">{{ tutorEmpresaNameById(s.EmpresaId, s.TutorEmpresaId) }}</div></td>
+                  <td class="p-2">{{ s.Estado_FFE || 'pendiente' }}</td>
+                  <td class="p-2">
+                    <button @click="viewDocumentsForStudent(s)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">{{ documentCountForStudent(s.id) }} doc.</button>
+                  </td>
                   <td class="p-2">
                     <div class="flex gap-1">
                       <button @click="editStudent(s)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
@@ -192,69 +191,77 @@
                     </div>
                   </td>
                 </tr>
-                <tr v-if="filteredStudents.length === 0">
-                  <td colspan="5" class="p-4 text-center text-slate-400">No hay alumnos que coincidan con la busqueda.</td>
-                </tr>
+                <tr v-if="filteredStudents.length === 0"><td colspan="6" class="p-4 text-center text-slate-400">No hay alumnos que coincidan con la busqueda.</td></tr>
               </tbody>
             </table>
           </div>
         </div>
 
         <div v-if="studentFormOpen" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <h3 class="font-bold mb-3">{{ studentForm.id ? 'Editar alumno' : 'Nuevo alumno' }}</h3>
+          <h3 class="font-bold mb-3">{{ studentForm.id ? 'Editar alumno/a' : 'Nuevo alumno/a' }}</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-            <input v-model="studentForm.nombre" placeholder="Nombre" class="field" />
-            <input v-model="studentForm.apellidos" placeholder="Apellidos" class="field" />
-            <input v-model="studentForm.dni" placeholder="DNI" class="field" />
-            <input v-model="studentForm.email" placeholder="Email" class="field" />
-            <input v-model="studentForm.telefono" placeholder="Telefono" class="field" />
-            <input v-model="studentForm.curso" placeholder="Curso" class="field" />
-            <input v-model="studentForm.grupo" placeholder="Grupo" class="field" />
-            <input v-model="studentForm.familiaProfesional" placeholder="Familia profesional" class="field" />
-            <select v-model="studentForm.empresaId" class="field">
-              <option value="">Sin empresa</option>
-              <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-            </select>
-            <select v-model="studentForm.estado" class="field">
-              <option value="pendiente">Pendiente</option>
-              <option value="asignado">Asignado</option>
-              <option value="activa">Activa</option>
-              <option value="finalizada">Finalizada</option>
-            </select>
-            <input v-model="studentForm.fechaInicio" type="date" class="field" />
-            <input v-model="studentForm.fechaFin" type="date" class="field" />
-            <input v-model.number="studentForm.horasPrevistas" type="number" min="0" placeholder="Horas previstas" class="field" />
-            <input v-model="studentForm.tutorCentro" placeholder="Tutor centro" class="field" />
-            <input v-model="studentForm.tutorEmpresa" placeholder="Tutor empresa" class="field" />
-            <textarea v-model="studentForm.observaciones" placeholder="Observaciones" class="field md:col-span-2 lg:col-span-3"></textarea>
+            <div><span class="field-label">Nombre</span><input v-model="studentForm.Nombre_Alumno" class="field" /></div>
+            <div><span class="field-label">Apellidos</span><input v-model="studentForm.Apellidos_Alumno" class="field" /></div>
+            <div><span class="field-label">DNI</span><input v-model="studentForm.DNI_Alumno" class="field" /></div>
+            <div><span class="field-label">Email</span><input v-model="studentForm.Email_Alumno" class="field" /></div>
+            <div><span class="field-label">Telefono</span><input v-model="studentForm.Telefono_Alumno" class="field" /></div>
+            <div><span class="field-label">Curso</span><input v-model="studentForm.Curso_Alumno" class="field" /></div>
+            <div><span class="field-label">Grupo</span><input v-model="studentForm.Grupo_Alumno" class="field" /></div>
+            <div><span class="field-label">Familia profesional</span><input v-model="studentForm.Familia_Profesional" class="field" /></div>
+            <div>
+              <span class="field-label">Empresa asignada</span>
+              <select v-model="studentForm.EmpresaId" @change="studentForm.TutorEmpresaId = ''" class="field">
+                <option value="">Sin empresa</option>
+                <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Tutor/a de empresa</span>
+              <select v-model="studentForm.TutorEmpresaId" class="field">
+                <option value="">Sin asignar</option>
+                <option v-for="t in tutoresDeEmpresa(studentForm.EmpresaId)" :key="t.id" :value="t.id">{{ t.Nombre_Apellidos_Tutor }}</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Estado FFE</span>
+              <select v-model="studentForm.Estado_FFE" class="field">
+                <option value="pendiente">Pendiente</option>
+                <option value="asignado">Asignado</option>
+                <option value="activa">Activa</option>
+                <option value="finalizada">Finalizada</option>
+              </select>
+            </div>
+            <div><span class="field-label">Fecha inicio FFE</span><input v-model="studentForm.Fecha_Inicio_FFE" type="date" class="field" /></div>
+            <div><span class="field-label">Fecha fin FFE</span><input v-model="studentForm.Fecha_Fin_FFE" type="date" class="field" /></div>
+            <div><span class="field-label">Horas previstas</span><input v-model.number="studentForm.Horas_Previstas_FFE" type="number" min="0" class="field" /></div>
+            <div><span class="field-label">Horas realizadas</span><input v-model.number="studentForm.Horas_Realizadas_FFE" type="number" min="0" class="field" /></div>
+            <div><span class="field-label">Tutor/a del centro</span><input v-model="studentForm.Tutor_Centro" class="field" /></div>
+            <div class="md:col-span-2 lg:col-span-3"><span class="field-label">Observaciones</span><textarea v-model="studentForm.Observaciones_Alumno" class="field"></textarea></div>
           </div>
           <div class="mt-3 flex gap-2">
-            <button @click="saveStudent" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar alumno</button>
+            <button @click="saveStudent" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar alumno/a</button>
             <button @click="cancelStudentForm" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
           </div>
         </div>
       </section>
 
+      <!-- ================= EMPRESAS ================= -->
       <section v-if="activeTab === 'companies'" class="space-y-4">
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
             <h2 class="font-black text-lg">Gestion de Empresas</h2>
-            <button v-if="canManageMasterData" @click="startNewCompany" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nueva empresa</button>
+            <button @click="startNewCompany" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nueva empresa</button>
           </div>
 
-          <div class="mb-3">
-            <input v-model="companyQuery" placeholder="Buscar empresa por nombre, CIF o sector" class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm" />
-          </div>
+          <div class="mb-3"><input v-model="companyQuery" placeholder="Buscar empresa por nombre, NIF o actividad" class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm" /></div>
 
-          <div v-if="canManageMasterData" class="mb-3 flex flex-wrap gap-2 items-center">
-            <button @click="downloadCompaniesTemplateCsv" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">
-              Descargar plantilla CSV empresas
-            </button>
+          <div class="mb-3 flex flex-wrap gap-2 items-center">
+            <button @click="downloadCompaniesTemplateCsv" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Descargar plantilla CSV empresas</button>
             <label class="px-3 py-2 rounded-lg bg-blue-900/40 border border-blue-700 text-xs font-bold cursor-pointer">
               Subir CSV empresas
               <input type="file" accept=".csv,text/csv" class="hidden" @change="importCompaniesFromCsv" />
             </label>
-            <span class="text-xs text-slate-400">Importacion masiva: una fila por empresa.</span>
+            <span class="text-xs text-slate-400">Los tutores de empresa se anaden desde la ficha de cada empresa.</span>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -262,21 +269,20 @@
               <thead class="bg-[#040914] text-slate-300">
                 <tr>
                   <th class="p-2 text-left">Empresa</th>
-                  <th class="p-2 text-left">Contacto</th>
-                  <th class="p-2 text-left">Plazas</th>
-                  <th class="p-2 text-left">Convenio</th>
+                  <th class="p-2 text-left">Localizacion</th>
+                  <th class="p-2 text-left">Representante</th>
+                  <th class="p-2 text-left">Tutores</th>
+                  <th class="p-2 text-left">Documentos</th>
                   <th class="p-2 text-left">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="c in filteredCompanies" :key="c.id" class="border-t border-slate-800">
-                  <td class="p-2">
-                    <div class="font-semibold">{{ c.nombre }}</div>
-                    <div class="text-slate-400">{{ c.cif || 'Sin CIF' }} - {{ c.sector || '-' }}</div>
-                  </td>
-                  <td class="p-2">{{ c.contactoNombre || '-' }}<div class="text-slate-400">{{ c.contactoEmail || '-' }}</div></td>
-                  <td class="p-2">{{ c.plazasDisponibles || 0 }}</td>
-                  <td class="p-2">{{ c.convenioFirmado ? 'Firmado' : 'Pendiente' }}</td>
+                  <td class="p-2"><div class="font-semibold">{{ c.Nombre_Empresa }}</div><div class="text-slate-400">{{ c.NIF_Empresa || 'Sin NIF' }} · {{ c.Actividad_Empresa || '-' }}</div></td>
+                  <td class="p-2">{{ c.Localidad_Empresa || '-' }}<div class="text-slate-400">{{ c.Provincia_Empresa || '' }} {{ c.Pais_Empresa || '' }}</div></td>
+                  <td class="p-2">{{ c.Nombre_Representante_Empresa || '-' }}<div class="text-slate-400">{{ c.Cargo_Representante_Empresa || '' }}</div></td>
+                  <td class="p-2">{{ (c.TutoresEmpresa || []).length }}</td>
+                  <td class="p-2"><button @click="viewDocumentsForCompany(c)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">{{ documentCountForCompany(c.id) }} doc.</button></td>
                   <td class="p-2">
                     <div class="flex gap-1">
                       <button @click="editCompany(c)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
@@ -284,9 +290,7 @@
                     </div>
                   </td>
                 </tr>
-                <tr v-if="filteredCompanies.length === 0">
-                  <td colspan="5" class="p-4 text-center text-slate-400">No hay empresas que coincidan con la busqueda.</td>
-                </tr>
+                <tr v-if="filteredCompanies.length === 0"><td colspan="6" class="p-4 text-center text-slate-400">No hay empresas que coincidan con la busqueda.</td></tr>
               </tbody>
             </table>
           </div>
@@ -295,22 +299,37 @@
         <div v-if="companyFormOpen" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <h3 class="font-bold mb-3">{{ companyForm.id ? 'Editar empresa' : 'Nueva empresa' }}</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-            <input v-model="companyForm.nombre" placeholder="Nombre" class="field" />
-            <input v-model="companyForm.cif" placeholder="CIF" class="field" />
-            <input v-model="companyForm.sector" placeholder="Sector" class="field" />
-            <input v-model="companyForm.direccion" placeholder="Direccion" class="field" />
-            <input v-model="companyForm.localidad" placeholder="Localidad" class="field" />
-            <input v-model="companyForm.contactoNombre" placeholder="Contacto" class="field" />
-            <input v-model="companyForm.contactoEmail" placeholder="Email contacto" class="field" />
-            <input v-model="companyForm.contactoTelefono" placeholder="Telefono contacto" class="field" />
-            <input v-model.number="companyForm.plazasDisponibles" type="number" min="0" placeholder="Plazas disponibles" class="field" />
-            <div class="field flex items-center gap-2">
-              <input id="convenio" type="checkbox" v-model="companyForm.convenioFirmado" />
-              <label for="convenio">Convenio firmado</label>
-            </div>
-            <input v-model="companyForm.convenioFecha" type="date" class="field" />
-            <textarea v-model="companyForm.observaciones" placeholder="Observaciones" class="field md:col-span-2 lg:col-span-3"></textarea>
+            <div><span class="field-label">Nombre de la empresa</span><input v-model="companyForm.Nombre_Empresa" class="field" /></div>
+            <div><span class="field-label">NIF</span><input v-model="companyForm.NIF_Empresa" class="field" /></div>
+            <div><span class="field-label">Actividad</span><input v-model="companyForm.Actividad_Empresa" class="field" /></div>
+            <div><span class="field-label">Base normativa</span><input v-model="companyForm.Base_Normativa_Empresa" class="field" /></div>
+            <div><span class="field-label">Calle</span><input v-model="companyForm.Calle_Empresa" class="field" /></div>
+            <div><span class="field-label">Localidad</span><input v-model="companyForm.Localidad_Empresa" class="field" /></div>
+            <div><span class="field-label">Provincia</span><input v-model="companyForm.Provincia_Empresa" class="field" /></div>
+            <div><span class="field-label">Pais</span><input v-model="companyForm.Pais_Empresa" class="field" /></div>
+            <div><span class="field-label">Codigo postal</span><input v-model="companyForm.CP_Empresa" class="field" /></div>
+            <div><span class="field-label">Nombre del representante</span><input v-model="companyForm.Nombre_Representante_Empresa" class="field" /></div>
+            <div><span class="field-label">Cargo del representante</span><input v-model="companyForm.Cargo_Representante_Empresa" class="field" /></div>
+            <div class="md:col-span-2 lg:col-span-3"><span class="field-label">Observaciones</span><textarea v-model="companyForm.Observaciones_Empresa" class="field"></textarea></div>
           </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-800">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="font-semibold text-sm">Tutores de empresa</h4>
+              <button @click="addTutorEmpresa" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs">Anadir tutor/a</button>
+            </div>
+            <div class="space-y-2">
+              <div v-for="(t, idx) in companyForm.TutoresEmpresa" :key="t.id" class="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs bg-[#040914] p-2 rounded-lg border border-slate-800">
+                <input v-model="t.Nombre_Apellidos_Tutor" placeholder="Nombre y apellidos" class="field" />
+                <input v-model="t.DNI_Tutor" placeholder="DNI" class="field" />
+                <input v-model="t.Email_Tutor" placeholder="Email" class="field" />
+                <input v-model="t.Telefono_Tutor" placeholder="Telefono" class="field" />
+                <button @click="removeTutorEmpresa(idx)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Quitar</button>
+              </div>
+              <p v-if="(companyForm.TutoresEmpresa || []).length === 0" class="text-xs text-slate-400">Sin tutores de empresa todavia.</p>
+            </div>
+          </div>
+
           <div class="mt-3 flex gap-2">
             <button @click="saveCompany" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar empresa</button>
             <button @click="cancelCompanyForm" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
@@ -318,122 +337,93 @@
         </div>
       </section>
 
-      <section v-if="activeTab === 'tracking'" class="space-y-4">
+      <!-- ================= DOCUMENTOS ================= -->
+      <section v-if="activeTab === 'documents'" class="space-y-4">
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
-            <h2 class="font-black text-lg">Seguimiento FFE</h2>
-            <button v-if="canManageMasterData" @click="startNewTracking" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nuevo seguimiento</button>
+            <h2 class="font-black text-lg">Documentos generados</h2>
+            <button @click="openGenerateDocForm" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Generar documento PDF</button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 text-xs">
+            <input v-model="documentQuery" placeholder="Buscar por alumno o empresa" class="field md:col-span-2" />
+            <select v-model="documentTipoFilter" class="field">
+              <option value="">Todos los tipos</option>
+              <option v-for="tipo in documentTiposDisponibles" :key="tipo" :value="tipo">{{ tipo }}</option>
+            </select>
+            <button v-if="documentStudentFilter || documentCompanyFilter" @click="documentStudentFilter=''; documentCompanyFilter=''" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 font-bold">Quitar filtro de alumno/empresa</button>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
             <table class="w-full text-xs">
               <thead class="bg-[#040914] text-slate-300">
                 <tr>
-                  <th class="p-2 text-left">Alumno</th>
+                  <th class="p-2 text-left">Tipo</th>
+                  <th class="p-2 text-left">Alumno/a</th>
                   <th class="p-2 text-left">Empresa</th>
-                  <th class="p-2 text-left">Periodo</th>
-                  <th class="p-2 text-left">Horas</th>
-                  <th class="p-2 text-left">Documentacion</th>
+                  <th class="p-2 text-left">Generado</th>
                   <th class="p-2 text-left">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="t in tracking" :key="t.id" class="border-t border-slate-800">
-                  <td class="p-2">{{ studentNameById(t.studentId) }}</td>
-                  <td class="p-2">{{ companyNameById(t.companyId) }}</td>
-                  <td class="p-2">{{ t.fechaInicio || '-' }} - {{ t.fechaFin || '-' }}</td>
-                  <td class="p-2">{{ t.horasRealizadas || 0 }} / {{ t.horasPlanificadas || 0 }}</td>
-                  <td class="p-2">
-                    <div class="flex flex-wrap gap-1">
-                      <span :class="docBadgeClass(t.documentacion && t.documentacion.convenio)">Convenio</span>
-                      <span :class="docBadgeClass(t.documentacion && t.documentacion.anexo)">Anexo</span>
-                      <span :class="docBadgeClass(t.documentacion && t.documentacion.evaluacionIntermedia)">Eval. intermedia</span>
-                      <span :class="docBadgeClass(t.documentacion && t.documentacion.evaluacionFinal)">Eval. final</span>
-                      <span :class="docBadgeClass(t.documentacion && t.documentacion.memoriaAlumno)">Memoria</span>
-                    </div>
-                  </td>
+                <tr v-for="d in filteredDocuments" :key="d.id" class="border-t border-slate-800">
+                  <td class="p-2"><span class="px-2 py-1 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-200">{{ d.Tipo_Documento }}</span></td>
+                  <td class="p-2">{{ studentNameById(d.StudentId) }}</td>
+                  <td class="p-2">{{ companyNameById(d.CompanyId) }}</td>
+                  <td class="p-2">{{ formatDateTime(d.generatedAt) }}<div class="text-slate-400">{{ d.generatedBy }}</div></td>
                   <td class="p-2">
                     <div class="flex gap-1">
-                      <button @click="editTracking(t)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
-                      <button v-if="canManageMasterData" @click="generateConvenioPdf(t)" class="px-2 py-1 rounded bg-emerald-900/40 border border-emerald-700 text-emerald-200">Generar convenio PDF</button>
-                      <a
-                        v-if="t.documentacion && t.documentacion.convenioPdf && t.documentacion.convenioPdf.url"
-                        :href="t.documentacion.convenioPdf.url"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="px-2 py-1 rounded bg-sky-900/40 border border-sky-700 text-sky-200"
-                      >Abrir PDF</a>
-                      <button v-if="isAdmin" @click="removeTracking(t)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                      <a :href="d.url" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded bg-sky-900/40 border border-sky-700 text-sky-200">Abrir PDF</a>
+                      <button v-if="isAdmin" @click="removeDocument(d)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
                     </div>
                   </td>
                 </tr>
-                <tr v-if="tracking.length === 0">
-                  <td colspan="6" class="p-4 text-center text-slate-400">No hay seguimientos registrados.</td>
-                </tr>
+                <tr v-if="filteredDocuments.length === 0"><td colspan="5" class="p-4 text-center text-slate-400">No hay documentos que coincidan con la busqueda.</td></tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        <div v-if="trackingFormOpen" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <h3 class="font-bold mb-3">{{ trackingForm.id ? 'Editar seguimiento' : 'Nuevo seguimiento' }}</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-            <select v-model="trackingForm.studentId" class="field">
-              <option value="">Selecciona alumno</option>
-              <option v-for="s in students" :key="s.id" :value="s.id">{{ s.nombre }} {{ s.apellidos }}</option>
-            </select>
-            <select v-model="trackingForm.companyId" class="field">
-              <option value="">Selecciona empresa</option>
-              <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-            </select>
-            <select v-model="trackingForm.estado" class="field">
-              <option value="activa">Activa</option>
-              <option value="pausada">Pausada</option>
-              <option value="finalizada">Finalizada</option>
-            </select>
-            <input v-model="trackingForm.fechaInicio" type="date" class="field" />
-            <input v-model="trackingForm.fechaFin" type="date" class="field" />
-            <input v-model.number="trackingForm.horasPlanificadas" type="number" min="0" placeholder="Horas planificadas" class="field" />
-            <input v-model.number="trackingForm.horasRealizadas" type="number" min="0" placeholder="Horas realizadas" class="field" />
-            <input v-model="trackingForm.tutorCentro" placeholder="Tutor centro" class="field" />
-            <input v-model="trackingForm.tutorEmpresa" placeholder="Tutor empresa" class="field" />
-            <textarea v-model="trackingForm.observaciones" placeholder="Observaciones" class="field md:col-span-2 lg:col-span-3"></textarea>
+        <div v-if="genDocFormOpen" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h3 class="font-bold mb-3">Generar documento PDF</h3>
+          <div v-if="documentTiposDisponibles.length === 0" class="text-xs text-amber-300 bg-amber-950/30 border border-amber-800/40 rounded-lg p-3 mb-3">
+            Todavia no hay ninguna plantilla configurada. Ve a Admin y asocia un tipo de documento (por ejemplo CONVENIO) a una plantilla de Google Docs.
           </div>
-
-          <div class="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-            <label class="doc-check"><input type="checkbox" v-model="trackingForm.documentacion.convenio" /> Convenio</label>
-            <label class="doc-check"><input type="checkbox" v-model="trackingForm.documentacion.anexo" /> Anexo</label>
-            <label class="doc-check"><input type="checkbox" v-model="trackingForm.documentacion.evaluacionIntermedia" /> Eval. intermedia</label>
-            <label class="doc-check"><input type="checkbox" v-model="trackingForm.documentacion.evaluacionFinal" /> Eval. final</label>
-            <label class="doc-check"><input type="checkbox" v-model="trackingForm.documentacion.memoriaAlumno" /> Memoria</label>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div>
+              <span class="field-label">Tipo de documento</span>
+              <select v-model="genDocForm.tipo" class="field">
+                <option value="">Selecciona tipo</option>
+                <option v-for="tipo in documentTiposDisponibles" :key="tipo" :value="tipo">{{ tipo }}</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Alumno/a</span>
+              <select v-model="genDocForm.studentId" @change="onGenDocStudentChange" class="field">
+                <option value="">Selecciona alumno/a</option>
+                <option v-for="s in students" :key="s.id" :value="s.id">{{ s.Nombre_Alumno }} {{ s.Apellidos_Alumno }}</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Tutor/a de empresa (opcional)</span>
+              <select v-model="genDocForm.tutorEmpresaId" class="field">
+                <option value="">Usar el tutor asignado al alumno/a</option>
+                <option v-for="t in tutoresDeEmpresa(genDocEmpresaId)" :key="t.id" :value="t.id">{{ t.Nombre_Apellidos_Tutor }}</option>
+              </select>
+            </div>
           </div>
-
           <div class="mt-3">
-            <div class="flex justify-between items-center mb-2">
-              <h4 class="font-semibold text-sm">Hitos de seguimiento</h4>
-              <button @click="addMilestone" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs">Agregar hito</button>
-            </div>
-            <div class="space-y-2">
-              <div v-for="(h, index) in trackingForm.hitos" :key="h.id" class="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs bg-[#040914] p-2 rounded-lg border border-slate-800">
-                <input type="date" v-model="h.fecha" class="field" />
-                <input v-model="h.tipo" placeholder="Tipo" class="field" />
-                <input v-model="h.detalle" placeholder="Detalle" class="field md:col-span-2" />
-                <div class="flex items-center gap-2">
-                  <label class="flex items-center gap-1"><input type="checkbox" v-model="h.completado" /> Completado</label>
-                  <button @click="removeMilestone(index)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Quitar</button>
-                </div>
-              </div>
-              <p v-if="trackingForm.hitos.length === 0" class="text-xs text-slate-400">Sin hitos todavia.</p>
-            </div>
+            <span class="field-label">Campos adicionales de este documento (uno por linea, CLAVE=valor)</span>
+            <textarea v-model="genDocForm.camposText" class="field min-h-[100px]" placeholder="FECHA_FIRMA=25/07/2026&#10;LUGAR_FIRMA=Badajoz"></textarea>
           </div>
-
           <div class="mt-3 flex gap-2">
-            <button v-if="canManageMasterData" @click="saveTracking" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar seguimiento</button>
-            <button @click="cancelTrackingForm" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+            <button @click="generateDocumentPdf" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Generar PDF</button>
+            <button @click="genDocFormOpen = false" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
           </div>
         </div>
       </section>
 
+      <!-- ================= ADMIN / SEGURIDAD ================= -->
       <section v-if="activeTab === 'security' && isAdmin" class="space-y-4">
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <h2 class="font-black text-lg mb-3">Seguridad institucional</h2>
@@ -441,9 +431,7 @@
 
           <div class="mb-3">
             <p class="text-xs font-semibold text-slate-300 mb-1">Administradores fijos</p>
-            <div class="flex flex-wrap gap-2">
-              <span v-for="email in accessControl.adminEmails" :key="email" class="px-2 py-1 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 text-xs">{{ email }}</span>
-            </div>
+            <div class="flex flex-wrap gap-2"><span v-for="email in accessControl.adminEmails" :key="email" class="px-2 py-1 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 text-xs">{{ email }}</span></div>
           </div>
 
           <div>
@@ -453,45 +441,51 @@
               <button @click="addAllowedEmail" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Agregar</button>
               <button @click="saveAllowedEmails" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar lista</button>
             </div>
-
             <div class="flex flex-wrap gap-2">
               <span v-for="email in accessControl.allowedEmails" :key="email" class="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#040914] border border-slate-700 text-xs">
-                {{ email }}
-                <button @click="removeAllowedEmail(email)" class="text-red-300 hover:text-red-200"><i class="ph ph-x"></i></button>
+                {{ email }}<button @click="removeAllowedEmail(email)" class="text-red-300 hover:text-red-200"><i class="ph ph-x"></i></button>
               </span>
             </div>
           </div>
+        </div>
 
-          <div class="mt-5 pt-4 border-t border-slate-800">
-            <h3 class="text-sm font-bold text-slate-200 mb-2">Documentacion de convenio</h3>
-            <p class="text-xs text-slate-400 mb-3">Configura aqui los datos globales (centro educativo, representante, etc.) y la plantilla base de Google Docs.</p>
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h3 class="text-sm font-bold text-slate-200 mb-2">Configuracion documental</h3>
+          <p class="text-xs text-slate-400 mb-3">Datos globales del centro y carpeta de salida de los PDF generados.</p>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mb-3">
-              <input v-model="docSettingsForm.templateDocId" placeholder="ID o enlace de Google Docs plantilla" class="field" />
-              <input v-model="docSettingsForm.outputFolderId" placeholder="ID o enlace carpeta destino PDFs" class="field" />
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mb-3">
+            <input v-model="docSettingsForm.outputFolderId" placeholder="ID o enlace de la carpeta de Drive donde guardar los PDF" class="field" />
+          </div>
+
+          <label class="text-xs text-slate-300 font-semibold mb-1 block">Campos globales (uno por linea, formato CLAVE=valor)</label>
+          <textarea v-model="docSettingsGlobalText" class="field min-h-[120px]" placeholder="CENTRO_NOMBRE=Centro Sagrado Corazon&#10;CENTRO_DIRECCION=Calle ...&#10;REPRESENTANTE_CENTRO=Nombre Apellidos"></textarea>
+
+          <div class="mt-4 pt-4 border-t border-slate-800">
+            <h4 class="text-sm font-bold text-slate-200 mb-2">Tipos de documento y plantillas</h4>
+            <p class="text-xs text-slate-400 mb-3">Cada tipo (Convenio, Anexo I, Seguimiento 8...) usa su propia plantilla de Google Docs. La plantilla debe contener marcadores como &lt;NOMBRE_ALUMNO&gt;, &lt;NIF_EMPRESA&gt;, &lt;NOMBRE_APELLIDOS_TUTOR&gt;, etc.</p>
+
+            <div class="flex flex-col sm:flex-row gap-2 mb-3">
+              <input v-model="newTemplateTipo" placeholder="Tipo (ej. CONVENIO, ANEXO_I, SEGUIMIENTO_8)" class="field" />
+              <input v-model="newTemplateDocId" placeholder="ID o enlace de la plantilla Google Docs" class="field" />
+              <button @click="addTemplateMapping" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold whitespace-nowrap">Anadir tipo</button>
             </div>
 
-            <label class="text-xs text-slate-300 font-semibold mb-1 block">Campos globales (uno por linea, formato CLAVE=valor)</label>
-            <textarea
-              v-model="docSettingsGlobalText"
-              class="field min-h-[140px]"
-              placeholder="CENTRO_NOMBRE=Centro Sagrado Corazon&#10;CENTRO_DIRECCION=Calle ...&#10;REPRESENTANTE_CENTRO=Nombre Apellidos"
-            ></textarea>
-
-            <div class="mt-3 flex flex-wrap gap-2">
-              <button @click="saveDocSettings" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar configuracion convenio</button>
-              <button @click="scanTemplatePlaceholders" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Leer campos del modelo real</button>
-            </div>
-
-            <div v-if="templatePlaceholdersRaw.length" class="mt-3 p-3 rounded-lg bg-[#040914] border border-slate-800">
-              <p class="text-xs font-semibold text-slate-300 mb-2">Campos detectados en plantilla (&lt;...&gt;)</p>
-              <div class="flex flex-wrap gap-2">
-                <span v-for="tag in templatePlaceholdersRaw" :key="tag" class="px-2 py-1 rounded border border-slate-700 text-xs text-slate-200 bg-slate-900">&lt;{{ tag }}&gt;</span>
+            <div class="space-y-1">
+              <div v-for="tipo in Object.keys(docSettings.templates || {})" :key="tipo" class="flex items-center justify-between gap-2 text-xs bg-[#040914] border border-slate-800 rounded-lg p-2">
+                <span class="font-bold text-slate-200">{{ tipo }}</span>
+                <span class="text-slate-400 truncate flex-1 mx-2">{{ docSettings.templates[tipo] }}</span>
+                <div class="flex gap-1">
+                  <button @click="previewTemplateFor(docSettings.templates[tipo])" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Leer campos</button>
+                  <button @click="removeTemplateMapping(tipo)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Quitar</button>
+                </div>
               </div>
+              <p v-if="Object.keys(docSettings.templates || {}).length === 0" class="text-xs text-slate-500">Sin tipos de documento configurados todavia.</p>
             </div>
+
+            <button @click="saveDocSettings" class="mt-3 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar configuracion documental</button>
 
             <div v-if="templatePlaceholdersDetected.length" class="mt-3 p-3 rounded-lg bg-[#040914] border border-slate-800">
-              <p class="text-xs font-semibold text-slate-300 mb-2">Clasificacion automatica de campos</p>
+              <p class="text-xs font-semibold text-slate-300 mb-2">Campos detectados en la plantilla (&lt;...&gt;)</p>
               <div class="space-y-1 text-xs">
                 <div v-for="item in templatePlaceholdersDetected" :key="item.raw" class="flex items-center gap-2">
                   <span class="px-2 py-0.5 rounded border border-slate-700 text-slate-200 bg-slate-900">&lt;{{ item.raw }}&gt;</span>
@@ -499,8 +493,6 @@
                 </div>
               </div>
             </div>
-
-            <p class="text-xs text-slate-500 mt-3">Marcadores en la plantilla: usa etiquetas como &lt;ALUMNO_NOMBRE_COMPLETO&gt;, &lt;EMPRESA_NOMBRE&gt;, &lt;FFE_FECHA_INICIO&gt; o tus propias claves globales.</p>
           </div>
         </div>
       </section>
@@ -508,8 +500,8 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbxU1nR2rKt7hUPWVe6C29zQyx15zgEXatAYU6K8IUl-aE5bhqYJjK8IpOHsB1jtSPxR/exec';
-                            
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzvHMJPPqtUGSihZoKRHFLz7kM0gYcyNs3F2eVW2QKCZJ78t0aEnzH4tcoF-rh0s5g/exec';
+
     const { createApp } = Vue;
 
     createApp({
@@ -529,54 +521,52 @@
           isAdmin: false,
           accessControl: { adminEmails: [], allowedEmails: [] },
           newAllowedEmail: '',
-          docSettings: { templateDocId: '', outputFolderId: '', globalFields: {} },
-          docSettingsForm: { templateDocId: '', outputFolderId: '' },
+          docSettings: { outputFolderId: '', globalFields: {}, templates: {} },
+          docSettingsForm: { outputFolderId: '' },
           docSettingsGlobalText: '',
-          templatePlaceholdersRaw: [],
+          newTemplateTipo: '',
+          newTemplateDocId: '',
           templatePlaceholdersDetected: [],
 
           students: [],
           companies: [],
-          tracking: [],
+          documents: [],
 
           activeTab: 'dashboard',
           studentQuery: '',
           companyQuery: '',
+          documentQuery: '',
+          documentTipoFilter: '',
+          documentStudentFilter: '',
+          documentCompanyFilter: '',
           csvSeparator: ',',
 
           studentFormOpen: false,
           companyFormOpen: false,
-          trackingFormOpen: false,
+          genDocFormOpen: false,
 
           studentForm: {},
           companyForm: {},
-          trackingForm: {}
+          genDocForm: { tipo: '', studentId: '', tutorEmpresaId: '', camposText: '' }
         };
       },
       computed: {
-        isUrlConfigured() {
-          return this.driveUrl.startsWith('https://script.google.com/');
-        },
-        canManageMasterData() {
-          return this.isAuthenticated;
-        },
+        isUrlConfigured() { return this.driveUrl.startsWith('https://script.google.com/'); },
         navItems() {
           const base = [
-            { key: 'dashboard', label: 'Dashboard', icon: 'ph ph-chart-bar' },
+            { key: 'dashboard', label: 'Resumen', icon: 'ph ph-chart-bar' },
             { key: 'students', label: 'Alumnos', icon: 'ph ph-student' },
             { key: 'companies', label: 'Empresas', icon: 'ph ph-buildings' },
-            { key: 'tracking', label: 'Seguimiento', icon: 'ph ph-list-checks' }
+            { key: 'documents', label: 'Documentos', icon: 'ph ph-files' }
           ];
-          if (this.isAdmin) {
-            base.push({ key: 'security', label: 'Seguridad', icon: 'ph ph-shield-check' });
-          }
+          if (this.isAdmin) base.push({ key: 'security', label: 'Admin', icon: 'ph ph-shield-check' });
           return base;
         },
         filteredStudents() {
           const q = (this.studentQuery || '').toLowerCase().trim();
           if (!q) return this.students;
           return this.students.filter((s) => {
-            const text = `${s.nombre || ''} ${s.apellidos || ''} ${s.curso || ''} ${s.grupo || ''}`.toLowerCase();
+            const text = `${s.Nombre_Alumno||''} ${s.Apellidos_Alumno||''} ${s.Curso_Alumno||''} ${s.Grupo_Alumno||''} ${s.Familia_Profesional||''}`.toLowerCase();
             return text.includes(q);
           });
         },
@@ -584,83 +574,88 @@
           const q = (this.companyQuery || '').toLowerCase().trim();
           if (!q) return this.companies;
           return this.companies.filter((c) => {
-            const text = `${c.nombre || ''} ${c.cif || ''} ${c.sector || ''}`.toLowerCase();
+            const text = `${c.Nombre_Empresa||''} ${c.NIF_Empresa||''} ${c.Actividad_Empresa||''}`.toLowerCase();
             return text.includes(q);
           });
         },
-        activeTrackingCount() {
-          return this.tracking.filter((t) => (t.estado || '').toLowerCase() === 'activa').length;
+        documentTiposDisponibles() {
+          return Object.keys(this.docSettings.templates || {}).sort((a, b) => a.localeCompare(b));
+        },
+        filteredDocuments() {
+          const q = (this.documentQuery || '').toLowerCase().trim();
+          return this.documents
+            .filter((d) => !this.documentTipoFilter || d.Tipo_Documento === this.documentTipoFilter)
+            .filter((d) => !this.documentStudentFilter || d.StudentId === this.documentStudentFilter)
+            .filter((d) => !this.documentCompanyFilter || d.CompanyId === this.documentCompanyFilter)
+            .filter((d) => {
+              if (!q) return true;
+              const text = `${this.studentNameById(d.StudentId)} ${this.companyNameById(d.CompanyId)} ${d.Tipo_Documento}`.toLowerCase();
+              return text.includes(q);
+            })
+            .slice()
+            .sort((a, b) => (b.generatedAt || '').localeCompare(a.generatedAt || ''));
+        },
+        activeFfeCount() {
+          return this.students.filter((s) => (s.Estado_FFE || '').toLowerCase() === 'activa').length;
+        },
+        resumenPorFamilia() {
+          const map = {};
+          this.students.forEach((s) => {
+            const fam = s.Familia_Profesional || 'Sin familia profesional';
+            const empId = s.EmpresaId || '__sin_empresa__';
+            if (!map[fam]) map[fam] = {};
+            if (!map[fam][empId]) map[fam][empId] = [];
+            map[fam][empId].push(s);
+          });
+          return Object.keys(map).sort((a, b) => a.localeCompare(b)).map((fam) => {
+            const empresas = Object.keys(map[fam]).map((empId) => ({
+              empresaId: empId,
+              empresaNombre: empId === '__sin_empresa__' ? 'Sin empresa asignada' : this.companyNameById(empId),
+              alumnos: map[fam][empId].slice().sort((a, b) => (a.Apellidos_Alumno || '').localeCompare(b.Apellidos_Alumno || ''))
+            })).sort((a, b) => a.empresaNombre.localeCompare(b.empresaNombre));
+            return { familia: fam, empresas, totalAlumnos: map[fam] ? Object.values(map[fam]).reduce((acc, arr) => acc + arr.length, 0) : 0 };
+          });
+        },
+        genDocEmpresaId() {
+          const s = this.students.find((x) => x.id === this.genDocForm.studentId);
+          return s ? s.EmpresaId : '';
         }
       },
       async mounted() {
         this.startNewStudent(false);
         this.startNewCompany(false);
-        this.startNewTracking(false);
         await this.initializeInstitutionalAccess();
         if (!this.isAuthenticated) return;
         await this.refreshSnapshot();
       },
       methods: {
-        normalizeEmail(value) {
-          return (value || '').toString().trim().replace(/^"|"$/g, '').toLowerCase();
-        },
+        normalizeEmail(value) { return (value || '').toString().trim().replace(/^"|"$/g, '').toLowerCase(); },
         normalizeCsvHeader(value) {
-          return (value || '')
-            .toString()
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9]/g, '');
+          return (value || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+        },
+        formatDateTime(iso) {
+          if (!iso) return '-';
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return iso;
+          return d.toLocaleString('es-ES');
         },
         parseCsv(text) {
-          const rows = [];
-          let row = [];
-          let cell = '';
-          let inQuotes = false;
-
+          const rows = []; let row = []; let cell = ''; let inQuotes = false;
           for (let i = 0; i < text.length; i += 1) {
-            const ch = text[i];
-            const next = text[i + 1];
-
+            const ch = text[i]; const next = text[i + 1];
             if (ch === '"') {
-              if (inQuotes && next === '"') {
-                cell += '"';
-                i += 1;
-              } else {
-                inQuotes = !inQuotes;
-              }
+              if (inQuotes && next === '"') { cell += '"'; i += 1; } else { inQuotes = !inQuotes; }
               continue;
             }
-
-            if (!inQuotes && ch === this.csvSeparator) {
-              row.push(cell.trim());
-              cell = '';
-              continue;
-            }
-
+            if (!inQuotes && ch === this.csvSeparator) { row.push(cell.trim()); cell = ''; continue; }
             if (!inQuotes && (ch === '\n' || ch === '\r')) {
               if (ch === '\r' && next === '\n') i += 1;
-              row.push(cell.trim());
-              rows.push(row);
-              row = [];
-              cell = '';
-              continue;
+              row.push(cell.trim()); rows.push(row); row = []; cell = ''; continue;
             }
-
             cell += ch;
           }
-
-          if (cell.length > 0 || row.length > 0) {
-            row.push(cell.trim());
-            rows.push(row);
-          }
-
+          if (cell.length > 0 || row.length > 0) { row.push(cell.trim()); rows.push(row); }
           return rows.filter((r) => r.some((c) => (c || '').trim() !== ''));
-        },
-        parseCsvBoolean(value) {
-          const v = (value || '').toString().trim().toLowerCase();
-          return ['1', 'true', 'si', 's', 'yes', 'y', 'x'].includes(v);
         },
         parseCsvNumber(value) {
           const n = Number((value || '').toString().trim().replace(',', '.'));
@@ -668,15 +663,11 @@
         },
         formatGlobalFieldsForEditor(fields) {
           const obj = (fields && typeof fields === 'object') ? fields : {};
-          return Object.keys(obj)
-            .sort((a, b) => a.localeCompare(b))
-            .map((key) => `${key}=${obj[key] || ''}`)
-            .join('\n');
+          return Object.keys(obj).sort((a, b) => a.localeCompare(b)).map((key) => `${key}=${obj[key] || ''}`).join('\n');
         },
         parseGlobalFieldsFromEditor(text) {
           const out = {};
-          const lines = (text || '').split(/\r?\n/);
-          lines.forEach((line) => {
+          (text || '').split(/\r?\n/).forEach((line) => {
             const trimmed = (line || '').trim();
             if (!trimmed || trimmed.startsWith('#')) return;
             const idx = trimmed.indexOf('=');
@@ -688,85 +679,44 @@
           });
           return out;
         },
-        formatDateForConvenio(dateObj = new Date()) {
-          const dd = String(dateObj.getDate()).padStart(2, '0');
-          const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-          const yyyy = dateObj.getFullYear();
-          return `${dd}/${mm}/${yyyy}`;
-        },
         placeholderSourceLabel(source) {
           if (source === 'global') return 'Global (admin)';
           if (source === 'student') return 'Alumno';
           if (source === 'company') return 'Empresa';
-          return 'Convenio / Seguimiento';
+          if (source === 'tutorEmpresa') return 'Tutor de empresa';
+          return 'Documento';
         },
         placeholderSourceClass(source) {
           if (source === 'global') return 'px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-200';
           if (source === 'student') return 'px-2 py-0.5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-200';
           if (source === 'company') return 'px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-200';
+          if (source === 'tutorEmpresa') return 'px-2 py-0.5 rounded bg-sky-500/20 border border-sky-500/40 text-sky-200';
           return 'px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-200';
-        },
-        collectConvenioRuntimeFields() {
-          const defaults = [
-            `FECHA_FIRMA=${this.formatDateForConvenio()}`,
-            'LUGAR_FIRMA=',
-            'REPRESENTANTE_EMPRESA=',
-            'REPRESENTANTE_CENTRO='
-          ];
-          const helpText = [
-            'Configura campos especificos del convenio para este PDF.',
-            'Formato: CLAVE=valor (una por linea).',
-            'Puedes dejar lineas vacias si no aplican.',
-            '',
-            ...defaults
-          ].join('\n');
-
-          const userInput = window.prompt(helpText, defaults.join('\n'));
-          if (userInput === null) return null;
-          return this.parseGlobalFieldsFromEditor(userInput);
         },
         applyDocSettingsFromSnapshot(settings) {
           const s = settings && typeof settings === 'object' ? settings : {};
           this.docSettings = {
-            templateDocId: s.templateDocId || '',
             outputFolderId: s.outputFolderId || '',
-            globalFields: (s.globalFields && typeof s.globalFields === 'object') ? s.globalFields : {}
+            globalFields: (s.globalFields && typeof s.globalFields === 'object') ? s.globalFields : {},
+            templates: (s.templates && typeof s.templates === 'object') ? s.templates : {}
           };
-          this.docSettingsForm.templateDocId = this.docSettings.templateDocId;
           this.docSettingsForm.outputFolderId = this.docSettings.outputFolderId;
           this.docSettingsGlobalText = this.formatGlobalFieldsForEditor(this.docSettings.globalFields);
         },
         downloadTextFile(filename, content) {
           const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
           const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
+          const a = document.createElement('a'); a.href = url; a.download = filename;
+          document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
         },
         downloadStudentsTemplateCsv() {
-          const header = [
-            'nombre', 'apellidos', 'dni', 'email', 'telefono', 'curso', 'grupo', 'familiaProfesional',
-            'empresaId', 'estado', 'fechaInicio', 'fechaFin', 'horasPrevistas', 'tutorCentro', 'tutorEmpresa', 'observaciones'
-          ];
-          const example = [
-            'Ana', 'Lopez', '12345678A', 'ana@sagrado-corazon.es', '600000000', '2 SMR', 'A', 'Informatica',
-            '', 'pendiente', '2026-09-15', '2027-03-20', '400', 'Marta Perez', 'Luis Diaz', 'Sin observaciones'
-          ];
+          const header = ['Nombre_Alumno','Apellidos_Alumno','DNI_Alumno','Email_Alumno','Telefono_Alumno','Curso_Alumno','Grupo_Alumno','Familia_Profesional','EmpresaId','Estado_FFE','Fecha_Inicio_FFE','Fecha_Fin_FFE','Horas_Previstas_FFE','Tutor_Centro','Observaciones_Alumno'];
+          const example = ['Ana','Lopez','12345678A','ana@ejemplo.com','600000000','2 SMR','A','Informatica','','pendiente','2026-09-15','2027-03-20','400','Marta Perez','Sin observaciones'];
           this.downloadTextFile('plantilla_alumnado_ffe.csv', `${header.join(',')}\n${example.join(',')}\n`);
         },
         downloadCompaniesTemplateCsv() {
-          const header = [
-            'nombre', 'cif', 'sector', 'direccion', 'localidad', 'contactoNombre', 'contactoEmail',
-            'contactoTelefono', 'plazasDisponibles', 'convenioFirmado', 'convenioFecha', 'observaciones'
-          ];
-          const example = [
-            'Tecno Sur SL', 'B12345678', 'Tecnologia', 'Calle Mayor 1', 'Badajoz', 'Laura Gomez', 'laura@tecnosur.es',
-            '924000000', '3', 'si', '2026-07-01', 'Empresa colaboradora'
-          ];
+          const header = ['Nombre_Empresa','NIF_Empresa','Actividad_Empresa','Base_Normativa_Empresa','Calle_Empresa','Localidad_Empresa','Provincia_Empresa','Pais_Empresa','CP_Empresa','Nombre_Representante_Empresa','Cargo_Representante_Empresa','Observaciones_Empresa'];
+          const example = ['Tecno Sur SL','B12345678','Tecnologia','Real Decreto 1529/2012','Calle Mayor 1','Badajoz','Badajoz','Espana','06001','Laura Gomez','Directora RRHH','Empresa colaboradora'];
           this.downloadTextFile('plantilla_empresas_ffe.csv', `${header.join(',')}\n${example.join(',')}\n`);
         },
         csvRowsToObjects(rows) {
@@ -774,11 +724,8 @@
           const headers = rows[0].map((h) => this.normalizeCsvHeader(h));
           const result = [];
           for (let i = 1; i < rows.length; i += 1) {
-            const line = rows[i];
-            const rowObj = {};
-            headers.forEach((h, idx) => {
-              rowObj[h] = (line[idx] || '').toString().trim();
-            });
+            const line = rows[i]; const rowObj = {};
+            headers.forEach((h, idx) => { rowObj[h] = (line[idx] || '').toString().trim(); });
             result.push(rowObj);
           }
           return result;
@@ -786,273 +733,174 @@
         pickCsv(row, keys, defaultValue = '') {
           for (const key of keys) {
             const normalized = this.normalizeCsvHeader(key);
-            if (row[normalized] !== undefined && row[normalized] !== null && row[normalized] !== '') {
-              return row[normalized];
-            }
+            if (row[normalized] !== undefined && row[normalized] !== null && row[normalized] !== '') return row[normalized];
           }
           return defaultValue;
         },
         mapStudentCsvRow(row) {
           return {
-            nombre: this.pickCsv(row, ['nombre']),
-            apellidos: this.pickCsv(row, ['apellidos']),
-            dni: this.pickCsv(row, ['dni']),
-            email: this.pickCsv(row, ['email']),
-            telefono: this.pickCsv(row, ['telefono']),
-            curso: this.pickCsv(row, ['curso']),
-            grupo: this.pickCsv(row, ['grupo']),
-            familiaProfesional: this.pickCsv(row, ['familiaProfesional', 'familia_profesional', 'familia']),
-            empresaId: this.pickCsv(row, ['empresaId', 'empresa_id']),
-            estado: this.pickCsv(row, ['estado'], 'pendiente'),
-            fechaInicio: this.pickCsv(row, ['fechaInicio', 'fecha_inicio']),
-            fechaFin: this.pickCsv(row, ['fechaFin', 'fecha_fin']),
-            horasPrevistas: this.parseCsvNumber(this.pickCsv(row, ['horasPrevistas', 'horas_previstas'], '0')),
-            tutorCentro: this.pickCsv(row, ['tutorCentro', 'tutor_centro']),
-            tutorEmpresa: this.pickCsv(row, ['tutorEmpresa', 'tutor_empresa']),
-            observaciones: this.pickCsv(row, ['observaciones'])
+            Nombre_Alumno: this.pickCsv(row, ['Nombre_Alumno','nombre']),
+            Apellidos_Alumno: this.pickCsv(row, ['Apellidos_Alumno','apellidos']),
+            DNI_Alumno: this.pickCsv(row, ['DNI_Alumno','dni']),
+            Email_Alumno: this.pickCsv(row, ['Email_Alumno','email']),
+            Telefono_Alumno: this.pickCsv(row, ['Telefono_Alumno','telefono']),
+            Curso_Alumno: this.pickCsv(row, ['Curso_Alumno','curso']),
+            Grupo_Alumno: this.pickCsv(row, ['Grupo_Alumno','grupo']),
+            Familia_Profesional: this.pickCsv(row, ['Familia_Profesional','familia_profesional','familia']),
+            EmpresaId: this.pickCsv(row, ['EmpresaId','empresa_id']),
+            Estado_FFE: this.pickCsv(row, ['Estado_FFE','estado'], 'pendiente'),
+            Fecha_Inicio_FFE: this.pickCsv(row, ['Fecha_Inicio_FFE','fecha_inicio']),
+            Fecha_Fin_FFE: this.pickCsv(row, ['Fecha_Fin_FFE','fecha_fin']),
+            Horas_Previstas_FFE: this.parseCsvNumber(this.pickCsv(row, ['Horas_Previstas_FFE','horas_previstas'], '0')),
+            Tutor_Centro: this.pickCsv(row, ['Tutor_Centro','tutor_centro']),
+            Observaciones_Alumno: this.pickCsv(row, ['Observaciones_Alumno','observaciones'])
           };
         },
         mapCompanyCsvRow(row) {
           return {
-            nombre: this.pickCsv(row, ['nombre']),
-            cif: this.pickCsv(row, ['cif']),
-            sector: this.pickCsv(row, ['sector']),
-            direccion: this.pickCsv(row, ['direccion']),
-            localidad: this.pickCsv(row, ['localidad']),
-            contactoNombre: this.pickCsv(row, ['contactoNombre', 'contacto_nombre']),
-            contactoEmail: this.pickCsv(row, ['contactoEmail', 'contacto_email']),
-            contactoTelefono: this.pickCsv(row, ['contactoTelefono', 'contacto_telefono']),
-            plazasDisponibles: this.parseCsvNumber(this.pickCsv(row, ['plazasDisponibles', 'plazas_disponibles'], '0')),
-            convenioFirmado: this.parseCsvBoolean(this.pickCsv(row, ['convenioFirmado', 'convenio_firmado'])),
-            convenioFecha: this.pickCsv(row, ['convenioFecha', 'convenio_fecha']),
-            observaciones: this.pickCsv(row, ['observaciones'])
+            Nombre_Empresa: this.pickCsv(row, ['Nombre_Empresa','nombre']),
+            NIF_Empresa: this.pickCsv(row, ['NIF_Empresa','nif']),
+            Actividad_Empresa: this.pickCsv(row, ['Actividad_Empresa','actividad']),
+            Base_Normativa_Empresa: this.pickCsv(row, ['Base_Normativa_Empresa','base_normativa']),
+            Calle_Empresa: this.pickCsv(row, ['Calle_Empresa','calle']),
+            Localidad_Empresa: this.pickCsv(row, ['Localidad_Empresa','localidad']),
+            Provincia_Empresa: this.pickCsv(row, ['Provincia_Empresa','provincia']),
+            Pais_Empresa: this.pickCsv(row, ['Pais_Empresa','pais']),
+            CP_Empresa: this.pickCsv(row, ['CP_Empresa','cp']),
+            Nombre_Representante_Empresa: this.pickCsv(row, ['Nombre_Representante_Empresa','representante']),
+            Cargo_Representante_Empresa: this.pickCsv(row, ['Cargo_Representante_Empresa','cargo_representante']),
+            Observaciones_Empresa: this.pickCsv(row, ['Observaciones_Empresa','observaciones']),
+            TutoresEmpresa: []
           };
         },
         async importStudentsFromCsv(event) {
-          if (!this.canManageMasterData) return;
           const file = event && event.target && event.target.files ? event.target.files[0] : null;
           if (!file) return;
-
-          this.isSyncing = true;
-          this.lastSyncError = '';
-          let imported = 0;
-          let failed = 0;
-
+          this.isSyncing = true; this.lastSyncError = ''; let imported = 0; let failed = 0;
           try {
             const text = await file.text();
-            const rows = this.parseCsv(text);
-            const objects = this.csvRowsToObjects(rows);
+            const objects = this.csvRowsToObjects(this.parseCsv(text));
             if (objects.length === 0) throw new Error('CSV_SIN_FILAS');
-
             for (let i = 0; i < objects.length; i += 1) {
               const payload = this.mapStudentCsvRow(objects[i]);
-              if (!payload.nombre || !payload.apellidos) {
-                failed += 1;
-                continue;
-              }
+              if (!payload.Nombre_Alumno || !payload.Apellidos_Alumno) { failed += 1; continue; }
               try {
                 const data = await this.postToServer('upsert_student', payload);
                 this.upsertLocal(this.students, data.student, 'id');
                 imported += 1;
-              } catch (err) {
-                failed += 1;
-              }
+              } catch (err) { failed += 1; }
             }
             this.lastSyncError = `Importacion alumnado completada. Correctos: ${imported}. Fallidos: ${failed}.`;
           } catch (err) {
             this.lastSyncError = `Error en importacion de alumnado: ${err.message || 'CSV_INVALIDO'}`;
           } finally {
-            this.isSyncing = false;
-            if (event && event.target) event.target.value = '';
+            this.isSyncing = false; if (event && event.target) event.target.value = '';
           }
         },
         async importCompaniesFromCsv(event) {
-          if (!this.canManageMasterData) return;
           const file = event && event.target && event.target.files ? event.target.files[0] : null;
           if (!file) return;
-
-          this.isSyncing = true;
-          this.lastSyncError = '';
-          let imported = 0;
-          let failed = 0;
-
+          this.isSyncing = true; this.lastSyncError = ''; let imported = 0; let failed = 0;
           try {
             const text = await file.text();
-            const rows = this.parseCsv(text);
-            const objects = this.csvRowsToObjects(rows);
+            const objects = this.csvRowsToObjects(this.parseCsv(text));
             if (objects.length === 0) throw new Error('CSV_SIN_FILAS');
-
             for (let i = 0; i < objects.length; i += 1) {
               const payload = this.mapCompanyCsvRow(objects[i]);
-              if (!payload.nombre) {
-                failed += 1;
-                continue;
-              }
+              if (!payload.Nombre_Empresa) { failed += 1; continue; }
               try {
                 const data = await this.postToServer('upsert_company', payload);
                 this.upsertLocal(this.companies, data.company, 'id');
                 imported += 1;
-              } catch (err) {
-                failed += 1;
-              }
+              } catch (err) { failed += 1; }
             }
             this.lastSyncError = `Importacion empresas completada. Correctos: ${imported}. Fallidos: ${failed}.`;
           } catch (err) {
             this.lastSyncError = `Error en importacion de empresas: ${err.message || 'CSV_INVALIDO'}`;
           } finally {
-            this.isSyncing = false;
-            if (event && event.target) event.target.value = '';
+            this.isSyncing = false; if (event && event.target) event.target.value = '';
           }
         },
+
+        // ---------- AUTENTICACION INSTITUCIONAL ----------
         parseJwtPayload(token) {
           try {
             const parts = (token || '').split('.');
             if (parts.length < 2) return null;
             const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-            const json = decodeURIComponent(
-              atob(base64)
-                .split('')
-                .map((c) => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`)
-                .join('')
-            );
+            const json = decodeURIComponent(atob(base64).split('').map((c) => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`).join(''));
             return JSON.parse(json);
-          } catch (err) {
-            return null;
-          }
+          } catch (err) { return null; }
         },
         validateInstitutionalCredential(credential) {
           const payload = this.parseJwtPayload(credential);
           if (!payload) return { valid: false, reason: 'No se pudo validar el token de autenticacion.' };
-
           const email = this.normalizeEmail(payload.email);
           const verified = !!payload.email_verified;
           const domainOk = email.endsWith(`@${this.institutionalDomain}`);
           const hd = (payload.hd || '').toLowerCase();
           const hostedDomainOk = !hd || hd === this.institutionalDomain;
-
-          if (!verified || !domainOk || !hostedDomainOk) {
-            return { valid: false, reason: `Acceso denegado. Usa una cuenta @${this.institutionalDomain}.` };
-          }
+          if (!verified || !domainOk || !hostedDomainOk) return { valid: false, reason: `Acceso denegado. Usa una cuenta @${this.institutionalDomain}.` };
           return { valid: true, email };
         },
-        getStoredIdToken() {
-          return localStorage.getItem('ffe_id_token') || '';
-        },
-        saveStoredIdToken(token) {
-          localStorage.setItem('ffe_id_token', token || '');
-        },
-        clearStoredIdToken() {
-          localStorage.removeItem('ffe_id_token');
-        },
-        getGoogleIdentityScript() {
-          return document.getElementById('google-identity-services');
-        },
+        getStoredIdToken() { return localStorage.getItem('ffe_id_token') || ''; },
+        saveStoredIdToken(token) { localStorage.setItem('ffe_id_token', token || ''); },
+        clearStoredIdToken() { localStorage.removeItem('ffe_id_token'); },
+        getGoogleIdentityScript() { return document.getElementById('google-identity-services'); },
         loadGoogleIdentityScript(timeoutMs = 15000) {
           return new Promise((resolve) => {
-            if (window.google && window.google.accounts && window.google.accounts.id) {
-              resolve(true);
-              return;
-            }
-
+            if (window.google && window.google.accounts && window.google.accounts.id) { resolve(true); return; }
             const existing = this.getGoogleIdentityScript();
             if (existing) existing.remove();
-
             const script = document.createElement('script');
             script.id = 'google-identity-services';
             script.src = `https://accounts.google.com/gsi/client?ts=${Date.now()}`;
-            script.async = true;
-            script.defer = true;
-
+            script.async = true; script.defer = true;
             let resolved = false;
-            const finish = (ok) => {
-              if (resolved) return;
-              resolved = true;
-              script.onload = null;
-              script.onerror = null;
-              resolve(ok);
-            };
-
+            const finish = (ok) => { if (resolved) return; resolved = true; script.onload = null; script.onerror = null; resolve(ok); };
             const timer = setTimeout(() => finish(false), timeoutMs);
-            script.onload = () => {
-              clearTimeout(timer);
-              finish(!!(window.google && window.google.accounts && window.google.accounts.id));
-            };
-            script.onerror = () => {
-              clearTimeout(timer);
-              finish(false);
-            };
-
+            script.onload = () => { clearTimeout(timer); finish(!!(window.google && window.google.accounts && window.google.accounts.id)); };
+            script.onerror = () => { clearTimeout(timer); finish(false); };
             document.head.appendChild(script);
           });
         },
         async ensureGoogleLoginReady() {
-          this.isLoadingAuth = true;
-          this.authError = '';
-
+          this.isLoadingAuth = true; this.authError = '';
           let loaded = !!(window.google && window.google.accounts && window.google.accounts.id);
           if (!loaded) loaded = await this.loadGoogleIdentityScript();
-
           this.isLoadingAuth = false;
-          if (!loaded) {
-            this.authError = 'No se pudo cargar Google Identity Services. Revisa tu conexion.';
-            return false;
-          }
-
+          if (!loaded) { this.authError = 'No se pudo cargar Google Identity Services. Revisa tu conexion.'; return false; }
           await this.$nextTick();
           this.renderGoogleLoginButton();
           return true;
         },
         renderGoogleLoginButton() {
           if (!this.$refs.googleLoginBtn || !window.google || !window.google.accounts || !window.google.accounts.id) return;
-
           this.$refs.googleLoginBtn.innerHTML = '';
           window.google.accounts.id.initialize({
-            client_id: this.googleClientId,
-            callback: this.handleGoogleCredentialResponse,
-            auto_select: false,
-            cancel_on_tap_outside: true,
-            ux_mode: 'popup'
+            client_id: this.googleClientId, callback: this.handleGoogleCredentialResponse,
+            auto_select: false, cancel_on_tap_outside: true, ux_mode: 'popup'
           });
-
-          window.google.accounts.id.renderButton(this.$refs.googleLoginBtn, {
-            type: 'standard',
-            theme: 'filled_black',
-            size: 'large',
-            text: 'signin_with',
-            shape: 'pill',
-            width: 320
-          });
+          window.google.accounts.id.renderButton(this.$refs.googleLoginBtn, { type: 'standard', theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'pill', width: 320 });
         },
         async initializeInstitutionalAccess() {
           if (!this.googleClientId || this.googleClientId.includes('PON_AQUI_TU_GOOGLE_CLIENT_ID')) {
-            this.authError = 'Configura el Google Client ID.';
-            return;
+            this.authError = 'Configura el Google Client ID.'; return;
           }
-
           const token = this.getStoredIdToken();
           if (token) {
             const check = this.validateInstitutionalCredential(token);
-            if (check.valid) {
-              this.currentUserEmail = check.email;
-              this.isAuthenticated = true;
-              return;
-            }
+            if (check.valid) { this.currentUserEmail = check.email; this.isAuthenticated = true; return; }
             this.clearStoredIdToken();
           }
-
           await this.ensureGoogleLoginReady();
         },
         async handleGoogleCredentialResponse(response) {
           const credential = response && response.credential ? response.credential : '';
           const check = this.validateInstitutionalCredential(credential);
           if (!check.valid) {
-            this.authError = check.reason;
-            this.isAuthenticated = false;
-            this.currentUserEmail = '';
-            this.clearStoredIdToken();
-            return;
+            this.authError = check.reason; this.isAuthenticated = false; this.currentUserEmail = ''; this.clearStoredIdToken(); return;
           }
-
           this.saveStoredIdToken(credential);
           this.currentUserEmail = check.email;
           this.isAuthenticated = true;
@@ -1060,13 +908,8 @@
           await this.refreshSnapshot();
         },
         async logoutInstitutionalSession() {
-          this.isAuthenticated = false;
-          this.currentUserEmail = '';
-          this.isAdmin = false;
-          this.clearStoredIdToken();
-          if (window.google && window.google.accounts && window.google.accounts.id) {
-            window.google.accounts.id.disableAutoSelect();
-          }
+          this.isAuthenticated = false; this.currentUserEmail = ''; this.isAdmin = false; this.clearStoredIdToken();
+          if (window.google && window.google.accounts && window.google.accounts.id) window.google.accounts.id.disableAutoSelect();
           await this.ensureGoogleLoginReady();
         },
         mapServerAuthError(code) {
@@ -1078,228 +921,177 @@
         },
         async postToServer(action, payload = {}) {
           if (!this.isUrlConfigured) throw new Error('URL_SCRIPT_NOT_CONFIGURED');
-
           const idToken = this.getStoredIdToken();
           const response = await fetch(this.driveUrl, {
-            method: 'POST',
-            mode: 'cors',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            method: 'POST', mode: 'cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action, payload, idToken, t: Date.now() })
           });
-
           const text = await response.text();
           let data;
-          try {
-            data = JSON.parse(text || '{}');
-          } catch (err) {
-            throw new Error(`NON_JSON_${response.status}`);
-          }
-
-          if (!data.success) {
-            throw new Error(data.error || 'SERVER_ERROR');
-          }
+          try { data = JSON.parse(text || '{}'); } catch (err) { throw new Error(`NON_JSON_${response.status}`); }
+          if (!data.success) throw new Error(data.error || 'SERVER_ERROR');
           return data;
         },
         async refreshSnapshot() {
           if (!this.isAuthenticated) return;
-
-          this.isSyncing = true;
-          this.lastSyncError = '';
+          this.isSyncing = true; this.lastSyncError = '';
           try {
             const data = await this.postToServer('read', {});
             this.students = Array.isArray(data.students) ? data.students : [];
             this.companies = Array.isArray(data.companies) ? data.companies : [];
-            this.tracking = Array.isArray(data.tracking) ? data.tracking : [];
+            this.documents = Array.isArray(data.documents) ? data.documents : [];
             this.accessControl = data.accessControl || { adminEmails: [], allowedEmails: [] };
             this.applyDocSettingsFromSnapshot(data.docSettings || {});
             this.isAdmin = !!(data.user && data.user.isAdmin);
           } catch (err) {
             const code = (err && err.message) ? err.message : 'READ_FAILED';
             this.lastSyncError = `Fallo leyendo Drive: ${code}`;
-            if (['EMAIL_NOT_ALLOWED', 'TOKEN_REQUIRED', 'INVALID_TOKEN', 'TOKENINFO_HTTP_400', 'INVALID_DOMAIN', 'INVALID_HOSTED_DOMAIN'].includes(code)) {
+            if (['EMAIL_NOT_ALLOWED','TOKEN_REQUIRED','INVALID_TOKEN','TOKENINFO_HTTP_400','INVALID_DOMAIN','INVALID_HOSTED_DOMAIN'].includes(code)) {
               this.authError = this.mapServerAuthError(code);
               await this.logoutInstitutionalSession();
             }
-          } finally {
-            this.isSyncing = false;
-          }
-        },
-        companyNameById(id) {
-          const c = this.companies.find((x) => x.id === id);
-          return c ? c.nombre : 'Sin empresa';
-        },
-        studentNameById(id) {
-          const s = this.students.find((x) => x.id === id);
-          return s ? `${s.nombre || ''} ${s.apellidos || ''}`.trim() : 'Alumno no encontrado';
-        },
-        docBadgeClass(ok) {
-          return ok
-            ? 'px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-200'
-            : 'px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400';
+          } finally { this.isSyncing = false; }
         },
 
+        // ---------- AYUDANTES DE LECTURA CRUZADA ----------
+        companyNameById(id) { const c = this.companies.find((x) => x.id === id); return c ? c.Nombre_Empresa : 'Sin empresa'; },
+        studentNameById(id) { const s = this.students.find((x) => x.id === id); return s ? `${s.Nombre_Alumno||''} ${s.Apellidos_Alumno||''}`.trim() : 'Alumno no encontrado'; },
+        tutoresDeEmpresa(empresaId) { const c = this.companies.find((x) => x.id === empresaId); return c && Array.isArray(c.TutoresEmpresa) ? c.TutoresEmpresa : []; },
+        tutorEmpresaNameById(empresaId, tutorId) {
+          if (!tutorId) return '';
+          const t = this.tutoresDeEmpresa(empresaId).find((x) => x.id === tutorId);
+          return t ? t.Nombre_Apellidos_Tutor : '';
+        },
+        documentCountForStudent(id) { return this.documents.filter((d) => d.StudentId === id).length; },
+        documentCountForCompany(id) { return this.documents.filter((d) => d.CompanyId === id).length; },
+        viewDocumentsForStudent(s) { this.documentStudentFilter = s.id; this.documentCompanyFilter = ''; this.activeTab = 'documents'; },
+        viewDocumentsForCompany(c) { this.documentCompanyFilter = c.id; this.documentStudentFilter = ''; this.activeTab = 'documents'; },
+
+        // ---------- ALUMNOS ----------
         startNewStudent(openForm = true) {
           this.studentFormOpen = !!openForm;
           this.studentForm = {
-            id: '', nombre: '', apellidos: '', dni: '', email: '', telefono: '', curso: '', grupo: '',
-            familiaProfesional: '', empresaId: '', estado: 'pendiente', fechaInicio: '', fechaFin: '',
-            horasPrevistas: 0, tutorCentro: '', tutorEmpresa: '', observaciones: ''
+            id: '', Nombre_Alumno: '', Apellidos_Alumno: '', DNI_Alumno: '', Email_Alumno: '', Telefono_Alumno: '',
+            Curso_Alumno: '', Grupo_Alumno: '', Familia_Profesional: '', EmpresaId: '', TutorEmpresaId: '',
+            Tutor_Centro: '', Estado_FFE: 'pendiente', Fecha_Inicio_FFE: '', Fecha_Fin_FFE: '',
+            Horas_Previstas_FFE: 0, Horas_Realizadas_FFE: 0, Observaciones_Alumno: ''
           };
         },
-        editStudent(s) {
-          this.studentForm = { ...this.studentForm, ...JSON.parse(JSON.stringify(s || {})) };
-          this.studentFormOpen = true;
-          this.activeTab = 'students';
-        },
-        startNewCompany(openForm = true) {
-          this.companyFormOpen = !!openForm;
-          this.companyForm = {
-            id: '', nombre: '', cif: '', sector: '', direccion: '', localidad: '', contactoNombre: '',
-            contactoEmail: '', contactoTelefono: '', plazasDisponibles: 0, convenioFirmado: false,
-            convenioFecha: '', observaciones: ''
-          };
-        },
-        editCompany(c) {
-          this.companyForm = { ...this.companyForm, ...JSON.parse(JSON.stringify(c || {})) };
-          this.companyFormOpen = true;
-          this.activeTab = 'companies';
-        },
-        startNewTracking(openForm = true) {
-          this.trackingFormOpen = !!openForm;
-          this.trackingForm = {
-            id: '', studentId: '', companyId: '', estado: 'activa', tutorCentro: '', tutorEmpresa: '',
-            fechaInicio: '', fechaFin: '', horasPlanificadas: 0, horasRealizadas: 0,
-            documentacion: {
-              convenio: false, anexo: false, evaluacionIntermedia: false, evaluacionFinal: false, memoriaAlumno: false
-            },
-            hitos: [], observaciones: ''
-          };
-        },
-        editTracking(t) {
-          const copy = JSON.parse(JSON.stringify(t || {}));
-          if (!copy.documentacion) {
-            copy.documentacion = { convenio: false, anexo: false, evaluacionIntermedia: false, evaluacionFinal: false, memoriaAlumno: false };
-          }
-          if (!Array.isArray(copy.hitos)) copy.hitos = [];
-          this.trackingForm = { ...this.trackingForm, ...copy };
-          this.trackingFormOpen = true;
-          this.activeTab = 'tracking';
-        },
-        cancelStudentForm() {
-          this.startNewStudent(false);
-        },
-        cancelCompanyForm() {
-          this.startNewCompany(false);
-        },
-        cancelTrackingForm() {
-          this.startNewTracking(false);
-        },
-        addMilestone() {
-          this.trackingForm.hitos.push({ id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`, fecha: '', tipo: '', detalle: '', completado: false });
-        },
-        removeMilestone(index) {
-          this.trackingForm.hitos.splice(index, 1);
-        },
-
+        editStudent(s) { this.studentForm = { ...this.studentForm, ...JSON.parse(JSON.stringify(s || {})) }; this.studentFormOpen = true; this.activeTab = 'students'; },
+        cancelStudentForm() { this.startNewStudent(false); },
         async saveStudent() {
-          if (!this.canManageMasterData) return;
-          this.isSyncing = true;
-          this.lastSyncError = '';
+          this.isSyncing = true; this.lastSyncError = '';
           try {
             const data = await this.postToServer('upsert_student', this.studentForm);
             this.upsertLocal(this.students, data.student, 'id');
             this.startNewStudent(false);
           } catch (err) {
-            this.lastSyncError = `Fallo guardando alumno: ${err.message || 'ERROR'}`;
-          } finally {
-            this.isSyncing = false;
-          }
+            this.lastSyncError = `Fallo guardando alumno/a: ${err.message || 'ERROR'}`;
+          } finally { this.isSyncing = false; }
         },
         async removeStudent(s) {
           if (!this.isAdmin) return;
-          if (!confirm(`Eliminar alumno ${s.nombre} ${s.apellidos}?`)) return;
+          if (!confirm(`Eliminar a ${s.Nombre_Alumno} ${s.Apellidos_Alumno}?`)) return;
           this.isSyncing = true;
           try {
             await this.postToServer('delete_student', { id: s.id });
             this.students = this.students.filter((x) => x.id !== s.id);
-            this.tracking = this.tracking.filter((x) => x.studentId !== s.id);
+            this.documents = this.documents.filter((x) => x.StudentId !== s.id);
           } catch (err) {
-            this.lastSyncError = `Fallo eliminando alumno: ${err.message || 'ERROR'}`;
-          } finally {
-            this.isSyncing = false;
-          }
+            this.lastSyncError = `Fallo eliminando alumno/a: ${err.message || 'ERROR'}`;
+          } finally { this.isSyncing = false; }
         },
+
+        // ---------- EMPRESAS ----------
+        startNewCompany(openForm = true) {
+          this.companyFormOpen = !!openForm;
+          this.companyForm = {
+            id: '', Nombre_Empresa: '', NIF_Empresa: '', Actividad_Empresa: '', Base_Normativa_Empresa: '',
+            Calle_Empresa: '', Localidad_Empresa: '', Provincia_Empresa: '', Pais_Empresa: '', CP_Empresa: '',
+            Nombre_Representante_Empresa: '', Cargo_Representante_Empresa: '', TutoresEmpresa: [], Observaciones_Empresa: ''
+          };
+        },
+        editCompany(c) {
+          const copy = JSON.parse(JSON.stringify(c || {}));
+          if (!Array.isArray(copy.TutoresEmpresa)) copy.TutoresEmpresa = [];
+          this.companyForm = { ...this.companyForm, ...copy };
+          this.companyFormOpen = true; this.activeTab = 'companies';
+        },
+        cancelCompanyForm() { this.startNewCompany(false); },
+        addTutorEmpresa() {
+          this.companyForm.TutoresEmpresa.push({ id: crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`, Nombre_Apellidos_Tutor: '', DNI_Tutor: '', Email_Tutor: '', Telefono_Tutor: '' });
+        },
+        removeTutorEmpresa(index) { this.companyForm.TutoresEmpresa.splice(index, 1); },
         async saveCompany() {
-          if (!this.canManageMasterData) return;
-          this.isSyncing = true;
-          this.lastSyncError = '';
+          this.isSyncing = true; this.lastSyncError = '';
           try {
             const data = await this.postToServer('upsert_company', this.companyForm);
             this.upsertLocal(this.companies, data.company, 'id');
             this.startNewCompany(false);
           } catch (err) {
             this.lastSyncError = `Fallo guardando empresa: ${err.message || 'ERROR'}`;
-          } finally {
-            this.isSyncing = false;
-          }
+          } finally { this.isSyncing = false; }
         },
         async removeCompany(c) {
           if (!this.isAdmin) return;
-          if (!confirm(`Eliminar empresa ${c.nombre}?`)) return;
+          if (!confirm(`Eliminar empresa ${c.Nombre_Empresa}?`)) return;
           this.isSyncing = true;
           try {
             await this.postToServer('delete_company', { id: c.id });
             this.companies = this.companies.filter((x) => x.id !== c.id);
-            this.students = this.students.map((s) => ({ ...s, empresaId: s.empresaId === c.id ? '' : s.empresaId }));
+            this.students = this.students.map((s) => (s.EmpresaId === c.id ? { ...s, EmpresaId: '', TutorEmpresaId: '' } : s));
+            this.documents = this.documents.filter((x) => x.CompanyId !== c.id);
           } catch (err) {
             this.lastSyncError = `Fallo eliminando empresa: ${err.message || 'ERROR'}`;
-          } finally {
-            this.isSyncing = false;
-          }
+          } finally { this.isSyncing = false; }
         },
-        async saveTracking() {
-          if (!this.canManageMasterData) return;
-          this.isSyncing = true;
-          this.lastSyncError = '';
+
+        // ---------- DOCUMENTOS ----------
+        openGenerateDocForm() {
+          this.genDocForm = { tipo: this.documentTiposDisponibles[0] || '', studentId: '', tutorEmpresaId: '', camposText: '' };
+          this.genDocFormOpen = true;
+        },
+        onGenDocStudentChange() { this.genDocForm.tutorEmpresaId = ''; },
+        async generateDocumentPdf() {
+          if (!this.genDocForm.tipo) { this.lastSyncError = 'Selecciona un tipo de documento.'; return; }
+          if (!this.genDocForm.studentId) { this.lastSyncError = 'Selecciona un alumno/a.'; return; }
+          this.isSyncing = true; this.lastSyncError = '';
           try {
-            const data = await this.postToServer('upsert_tracking', this.trackingForm);
-            this.upsertLocal(this.tracking, data.tracking, 'id');
-            this.startNewTracking(false);
+            const payload = {
+              tipo: this.genDocForm.tipo,
+              studentId: this.genDocForm.studentId,
+              tutorEmpresaId: this.genDocForm.tutorEmpresaId,
+              campos: this.parseGlobalFieldsFromEditor(this.genDocForm.camposText)
+            };
+            const data = await this.postToServer('generate_document_pdf', payload);
+            if (data && data.document) this.documents.push(data.document);
+            this.genDocFormOpen = false;
+            this.lastSyncError = data && data.document && data.document.url ? `Documento generado: ${data.document.url}` : 'Documento generado correctamente.';
           } catch (err) {
-            this.lastSyncError = `Fallo guardando seguimiento: ${err.message || 'ERROR'}`;
-          } finally {
-            this.isSyncing = false;
-          }
+            this.lastSyncError = `Fallo generando el documento: ${err.message || 'ERROR'}`;
+          } finally { this.isSyncing = false; }
         },
-        async removeTracking(t) {
+        async removeDocument(d) {
           if (!this.isAdmin) return;
-          if (!confirm('Eliminar seguimiento seleccionado?')) return;
+          if (!confirm('Eliminar este registro de documento? (el PDF en Drive no se borra)')) return;
           this.isSyncing = true;
           try {
-            await this.postToServer('delete_tracking', { id: t.id });
-            this.tracking = this.tracking.filter((x) => x.id !== t.id);
+            await this.postToServer('delete_document', { id: d.id });
+            this.documents = this.documents.filter((x) => x.id !== d.id);
           } catch (err) {
-            this.lastSyncError = `Fallo eliminando seguimiento: ${err.message || 'ERROR'}`;
-          } finally {
-            this.isSyncing = false;
-          }
+            this.lastSyncError = `Fallo eliminando documento: ${err.message || 'ERROR'}`;
+          } finally { this.isSyncing = false; }
         },
+
+        // ---------- ADMIN ----------
         addAllowedEmail() {
           const email = this.normalizeEmail(this.newAllowedEmail);
           if (!email) return;
-          if (!email.endsWith(`@${this.institutionalDomain}`)) {
-            this.lastSyncError = `Solo se permiten cuentas @${this.institutionalDomain}`;
-            return;
-          }
-          if (!this.accessControl.allowedEmails.includes(email)) {
-            this.accessControl.allowedEmails.push(email);
-            this.accessControl.allowedEmails.sort((a, b) => a.localeCompare(b));
-          }
+          if (!email.endsWith(`@${this.institutionalDomain}`)) { this.lastSyncError = `Solo se permiten cuentas @${this.institutionalDomain}`; return; }
+          if (!this.accessControl.allowedEmails.includes(email)) { this.accessControl.allowedEmails.push(email); this.accessControl.allowedEmails.sort((a, b) => a.localeCompare(b)); }
           this.newAllowedEmail = '';
         },
-        removeAllowedEmail(email) {
-          this.accessControl.allowedEmails = this.accessControl.allowedEmails.filter((e) => e !== email);
-        },
+        removeAllowedEmail(email) { this.accessControl.allowedEmails = this.accessControl.allowedEmails.filter((e) => e !== email); },
         async saveAllowedEmails() {
           if (!this.isAdmin) return;
           this.isSyncing = true;
@@ -1308,101 +1100,54 @@
             this.accessControl = data.accessControl || this.accessControl;
           } catch (err) {
             this.lastSyncError = `Fallo guardando allowlist: ${err.message || 'ERROR'}`;
-          } finally {
-            this.isSyncing = false;
-          }
+          } finally { this.isSyncing = false; }
+        },
+        addTemplateMapping() {
+          const tipo = (this.newTemplateTipo || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+          const docId = (this.newTemplateDocId || '').trim();
+          if (!tipo || !docId) { this.lastSyncError = 'Indica un tipo y una plantilla validos.'; return; }
+          this.docSettings.templates = { ...this.docSettings.templates, [tipo]: docId };
+          this.newTemplateTipo = ''; this.newTemplateDocId = '';
+        },
+        removeTemplateMapping(tipo) {
+          const copy = { ...this.docSettings.templates };
+          delete copy[tipo];
+          this.docSettings.templates = copy;
         },
         async saveDocSettings() {
           if (!this.isAdmin) return;
           this.isSyncing = true;
           try {
             const payload = {
-              templateDocId: this.docSettingsForm.templateDocId,
               outputFolderId: this.docSettingsForm.outputFolderId,
-              globalFields: this.parseGlobalFieldsFromEditor(this.docSettingsGlobalText)
+              globalFields: this.parseGlobalFieldsFromEditor(this.docSettingsGlobalText),
+              templates: this.docSettings.templates
             };
             const data = await this.postToServer('set_doc_settings', payload);
             this.applyDocSettingsFromSnapshot(data.docSettings || payload);
-            this.lastSyncError = 'Configuracion de convenio guardada correctamente.';
+            this.lastSyncError = 'Configuracion documental guardada correctamente.';
           } catch (err) {
-            this.lastSyncError = `Fallo guardando configuracion de convenio: ${err.message || 'ERROR'}`;
-          } finally {
-            this.isSyncing = false;
-          }
+            this.lastSyncError = `Fallo guardando configuracion documental: ${err.message || 'ERROR'}`;
+          } finally { this.isSyncing = false; }
         },
-        async scanTemplatePlaceholders() {
+        async previewTemplateFor(templateDocId) {
           if (!this.isAdmin) return;
           this.isSyncing = true;
           try {
-            const data = await this.postToServer('preview_template_placeholders', {
-              templateDocId: this.docSettingsForm.templateDocId
-            });
-            this.templatePlaceholdersRaw = Array.isArray(data.placeholdersRaw) ? data.placeholdersRaw : [];
+            const data = await this.postToServer('preview_template_placeholders', { templateDocId });
             this.templatePlaceholdersDetected = Array.isArray(data.placeholdersDetected) ? data.placeholdersDetected : [];
-            this.lastSyncError = this.templatePlaceholdersRaw.length
-              ? `Campos detectados: ${this.templatePlaceholdersRaw.length}`
-              : 'No se detectaron campos <...> en la plantilla.';
+            this.lastSyncError = this.templatePlaceholdersDetected.length ? `Campos detectados: ${this.templatePlaceholdersDetected.length}` : 'No se detectaron campos <...> en la plantilla.';
           } catch (err) {
-            this.lastSyncError = `No se pudo leer el modelo real: ${err.message || 'ERROR'}`;
-          } finally {
-            this.isSyncing = false;
-          }
+            this.lastSyncError = `No se pudo leer la plantilla: ${err.message || 'ERROR'}`;
+          } finally { this.isSyncing = false; }
         },
-        async generateConvenioPdf(trackingRecord) {
-          if (!this.canManageMasterData) return;
-          const trackingId = trackingRecord && trackingRecord.id ? trackingRecord.id : '';
-          if (!trackingId) return;
 
-          const convenioFields = this.collectConvenioRuntimeFields();
-          if (convenioFields === null) return;
-
-          this.isSyncing = true;
-          try {
-            const data = await this.postToServer('generate_convenio_pdf', { trackingId, convenioFields });
-            if (data && data.tracking) {
-              this.upsertLocal(this.tracking, data.tracking, 'id');
-            }
-            const pdfUrl = data && data.convenioPdf && data.convenioPdf.url ? data.convenioPdf.url : '';
-            this.lastSyncError = pdfUrl ? `Convenio generado correctamente: ${pdfUrl}` : 'Convenio generado correctamente.';
-          } catch (err) {
-            this.lastSyncError = `Fallo generando convenio PDF: ${err.message || 'ERROR'}`;
-          } finally {
-            this.isSyncing = false;
-          }
-        },
         upsertLocal(arr, item, key) {
           const idx = arr.findIndex((x) => x[key] === item[key]);
-          if (idx >= 0) arr[idx] = item;
-          else arr.push(item);
+          if (idx >= 0) arr[idx] = item; else arr.push(item);
         }
       }
     }).mount('#app');
   </script>
-
-  <style>
-    .field {
-      width: 100%;
-      border: 1px solid rgb(51 65 85);
-      border-radius: 0.5rem;
-      background: #040914;
-      color: rgb(226 232 240);
-      padding: 0.5rem 0.75rem;
-      outline: none;
-    }
-    .field:focus {
-      border-color: rgb(59 130 246);
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
-    }
-    .doc-check {
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      background: #040914;
-      border: 1px solid rgb(51 65 85);
-      border-radius: 0.5rem;
-      padding: 0.5rem;
-      color: rgb(203 213 225);
-    }
-  </style>
 </body>
 </html>
