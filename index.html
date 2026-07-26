@@ -8,6 +8,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <style>
     [v-cloak] { display: none; }
@@ -155,9 +156,10 @@
           <div class="mb-3 flex flex-wrap gap-2 items-center">
             <button @click="downloadStudentsTemplateCsv" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Descargar plantilla CSV alumnado</button>
             <label class="px-3 py-2 rounded-lg bg-blue-900/40 border border-blue-700 text-xs font-bold cursor-pointer">
-              Subir CSV alumnado
-              <input type="file" accept=".csv,text/csv" class="hidden" @change="importStudentsFromCsv" />
+              Subir CSV/Excel alumnado
+              <input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden" @change="importStudentsFromFile" />
             </label>
+            <span class="text-xs text-slate-400">Admite la plantilla CSV propia o el "Listado de alumnos" (.xlsx) exportado por el centro.</span>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -500,8 +502,8 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbx6WGH5WgzBtCdt0gK4qcdoovDwFpa5yS9rp2Jof7fl-Nb7-PyJa1OCbcpM-LcG7uZJ/exec';
-                            
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzvHMJPPqtUGSihZoKRHFLz7kM0gYcyNs3F2eVW2QKCZJ78t0aEnzH4tcoF-rh0s5g/exec';
+
     const { createApp } = Vue;
 
     createApp({
@@ -737,24 +739,82 @@
           }
           return defaultValue;
         },
-        mapStudentCsvRow(row) {
+        // Convierte cualquier fila ya normalizada (venga de la plantilla propia en CSV o de una
+        // exportacion oficial del centro en CSV/XLSX) al payload de alumno. Si un dato no viene en
+        // el origen, el campo se deja vacio: nunca se inventa un valor.
+        buildStudentPayloadFromRecord(row) {
+          const apellidosDirecto = this.pickCsv(row, ['Apellidos_Alumno', 'apellidos']);
+          const primerApellido = this.pickCsv(row, ['Primer Apellido', 'primer_apellido']);
+          const segundoApellido = this.pickCsv(row, ['Segundo Apellido', 'segundo_apellido']);
+          const apellidos = apellidosDirecto || [primerApellido, segundoApellido].filter((v) => !!v).join(' ').trim();
+
+          const familiaDirecta = this.pickCsv(row, ['Familia_Profesional', 'familia_profesional', 'familia']);
+          const cursoOriginal = this.pickCsv(row, ['Curso_Alumno', 'curso']);
+          let curso = cursoOriginal;
+          let familia = familiaDirecta;
+          if (!familia && cursoOriginal && cursoOriginal.includes('-')) {
+            const idx = cursoOriginal.indexOf('-');
+            curso = cursoOriginal.slice(0, idx).trim();
+            familia = cursoOriginal.slice(idx + 1).trim();
+          }
+
           return {
-            Nombre_Alumno: this.pickCsv(row, ['Nombre_Alumno','nombre']),
-            Apellidos_Alumno: this.pickCsv(row, ['Apellidos_Alumno','apellidos']),
-            DNI_Alumno: this.pickCsv(row, ['DNI_Alumno','dni']),
-            Email_Alumno: this.pickCsv(row, ['Email_Alumno','email']),
-            Telefono_Alumno: this.pickCsv(row, ['Telefono_Alumno','telefono']),
-            Curso_Alumno: this.pickCsv(row, ['Curso_Alumno','curso']),
-            Grupo_Alumno: this.pickCsv(row, ['Grupo_Alumno','grupo']),
-            Familia_Profesional: this.pickCsv(row, ['Familia_Profesional','familia_profesional','familia']),
-            EmpresaId: this.pickCsv(row, ['EmpresaId','empresa_id']),
-            Estado_FFE: this.pickCsv(row, ['Estado_FFE','estado'], 'pendiente'),
-            Fecha_Inicio_FFE: this.pickCsv(row, ['Fecha_Inicio_FFE','fecha_inicio']),
-            Fecha_Fin_FFE: this.pickCsv(row, ['Fecha_Fin_FFE','fecha_fin']),
-            Horas_Previstas_FFE: this.parseCsvNumber(this.pickCsv(row, ['Horas_Previstas_FFE','horas_previstas'], '0')),
-            Tutor_Centro: this.pickCsv(row, ['Tutor_Centro','tutor_centro']),
-            Observaciones_Alumno: this.pickCsv(row, ['Observaciones_Alumno','observaciones'])
+            Nombre_Alumno: this.pickCsv(row, ['Nombre_Alumno', 'nombre']),
+            Apellidos_Alumno: apellidos,
+            DNI_Alumno: this.pickCsv(row, ['DNI_Alumno', 'dni']),
+            Email_Alumno: this.pickCsv(row, ['Email_Alumno', 'email', 'mail', 'correo']),
+            Telefono_Alumno: this.pickCsv(row, ['Telefono_Alumno', 'telefono']),
+            Curso_Alumno: curso,
+            Grupo_Alumno: this.pickCsv(row, ['Grupo_Alumno', 'grupo']),
+            Familia_Profesional: familia,
+            EmpresaId: this.pickCsv(row, ['EmpresaId', 'empresa_id']),
+            Estado_FFE: this.pickCsv(row, ['Estado_FFE', 'estado'], 'pendiente'),
+            Fecha_Inicio_FFE: this.pickCsv(row, ['Fecha_Inicio_FFE', 'fecha_inicio']),
+            Fecha_Fin_FFE: this.pickCsv(row, ['Fecha_Fin_FFE', 'fecha_fin']),
+            Horas_Previstas_FFE: this.parseCsvNumber(this.pickCsv(row, ['Horas_Previstas_FFE', 'horas_previstas'], '0')),
+            Tutor_Centro: this.pickCsv(row, ['Tutor_Centro', 'tutor_centro']),
+            Observaciones_Alumno: this.pickCsv(row, ['Observaciones_Alumno', 'observaciones'])
           };
+        },
+        // Busca, entre las primeras filas de una hoja Excel, la fila de cabecera real
+        // (algunas exportaciones oficiales traen titulos/lineas en blanco antes de la tabla).
+        findHeaderRowIndex(rows) {
+          const limit = Math.min(rows.length, 20);
+          for (let i = 0; i < limit; i += 1) {
+            const normalized = (rows[i] || []).map((c) => this.normalizeCsvHeader(c));
+            const hasNombre = normalized.includes('nombre');
+            const hasDni = normalized.includes('dni');
+            const hasApellido = normalized.some((h) => h.includes('apellido'));
+            if (hasNombre && (hasDni || hasApellido)) return i;
+          }
+          return -1;
+        },
+        xlsxRowsToObjects(headerRow, dataRows) {
+          const headers = headerRow.map((h) => this.normalizeCsvHeader(h));
+          return dataRows.map((row) => {
+            const obj = {};
+            headers.forEach((h, idx) => {
+              const cell = row[idx];
+              obj[h] = (cell === undefined || cell === null) ? '' : cell.toString().trim();
+            });
+            return obj;
+          });
+        },
+        async readStudentRecordsFromFile(file) {
+          const isExcel = /\.(xlsx|xls)$/i.test(file.name) || file.type.indexOf('spreadsheet') >= 0;
+          if (!isExcel) {
+            const text = await file.text();
+            return this.csvRowsToObjects(this.parseCsv(text));
+          }
+          const buffer = await file.arrayBuffer();
+          const workbook = XLSX.read(buffer, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+          const headerIdx = this.findHeaderRowIndex(allRows);
+          if (headerIdx === -1) throw new Error('NO_SE_ENCONTRO_CABECERA_EN_EXCEL');
+          const headerRow = allRows[headerIdx];
+          const dataRows = allRows.slice(headerIdx + 1).filter((r) => (r || []).some((c) => (c || '').toString().trim() !== ''));
+          return this.xlsxRowsToObjects(headerRow, dataRows);
         },
         mapCompanyCsvRow(row) {
           return {
@@ -773,26 +833,25 @@
             TutoresEmpresa: []
           };
         },
-        async importStudentsFromCsv(event) {
+        async importStudentsFromFile(event) {
           const file = event && event.target && event.target.files ? event.target.files[0] : null;
           if (!file) return;
-          this.isSyncing = true; this.lastSyncError = ''; let imported = 0; let failed = 0;
+          this.isSyncing = true; this.lastSyncError = ''; let imported = 0; let failed = 0; let omitidos = 0;
           try {
-            const text = await file.text();
-            const objects = this.csvRowsToObjects(this.parseCsv(text));
-            if (objects.length === 0) throw new Error('CSV_SIN_FILAS');
+            const objects = await this.readStudentRecordsFromFile(file);
+            if (objects.length === 0) throw new Error('ARCHIVO_SIN_FILAS_DE_DATOS');
             for (let i = 0; i < objects.length; i += 1) {
-              const payload = this.mapStudentCsvRow(objects[i]);
-              if (!payload.Nombre_Alumno || !payload.Apellidos_Alumno) { failed += 1; continue; }
+              const payload = this.buildStudentPayloadFromRecord(objects[i]);
+              if (!payload.Nombre_Alumno || !payload.Apellidos_Alumno) { omitidos += 1; continue; }
               try {
                 const data = await this.postToServer('upsert_student', payload);
                 this.upsertLocal(this.students, data.student, 'id');
                 imported += 1;
               } catch (err) { failed += 1; }
             }
-            this.lastSyncError = `Importacion alumnado completada. Correctos: ${imported}. Fallidos: ${failed}.`;
+            this.lastSyncError = `Importacion alumnado completada. Correctos: ${imported}. Fallidos al guardar: ${failed}. Filas sin nombre/apellidos (omitidas): ${omitidos}.`;
           } catch (err) {
-            this.lastSyncError = `Error en importacion de alumnado: ${err.message || 'CSV_INVALIDO'}`;
+            this.lastSyncError = `Error en importacion de alumnado: ${err.message || 'ARCHIVO_INVALIDO'}`;
           } finally {
             this.isSyncing = false; if (event && event.target) event.target.value = '';
           }
