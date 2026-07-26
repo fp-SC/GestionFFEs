@@ -60,6 +60,24 @@
 
     <!-- ============ APP: solo existe una vez autenticado ============ -->
     <div v-else>
+      <!-- Overlay: se muestra mientras cualquier accion (guardar, importar, generar PDF...) esta en curso -->
+      <div v-if="busy.active" class="fixed inset-0 z-[99] bg-black/50 backdrop-blur-[1px] flex items-center justify-center">
+        <div class="bg-[#070e1e] border border-slate-700 rounded-xl px-6 py-4 shadow-2xl flex items-center gap-3">
+          <i class="ph ph-spinner spinner text-2xl text-blue-400"></i>
+          <span class="text-sm font-semibold text-slate-100">{{ busy.label || 'Procesando...' }}</span>
+        </div>
+      </div>
+
+      <!-- Aviso de resultado (exito/error) de la ultima accion realizada -->
+      <div v-if="toast.show" :class="toast.type === 'error' ? 'bg-red-950/95 border-red-700 text-red-100' : 'bg-emerald-950/95 border-emerald-700 text-emerald-100'"
+        class="fixed top-4 right-4 z-[100] max-w-sm border rounded-xl shadow-2xl p-4 text-sm">
+        <div class="flex items-start gap-2">
+          <i :class="toast.type === 'error' ? 'ph ph-warning-circle text-red-300' : 'ph ph-check-circle text-emerald-300'" class="text-lg mt-0.5"></i>
+          <div class="flex-1 whitespace-pre-line">{{ toast.message }}</div>
+          <button @click="toast.show = false" class="text-slate-400 hover:text-slate-200"><i class="ph ph-x"></i></button>
+        </div>
+      </div>
+
       <header class="mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#070e1e]/90 p-5 rounded-2xl border border-slate-800 shadow-2xl">
         <div class="flex items-center gap-4">
           <div class="w-14 h-14 rounded-xl bg-[#040914] border border-slate-700 flex items-center justify-center">
@@ -75,8 +93,8 @@
           <div class="px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-200 font-semibold max-w-[280px] truncate">{{ currentUserEmail }}</div>
           <div v-if="isAdmin" class="px-3 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-xs font-bold text-indigo-200">Perfil Admin</div>
           <div class="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-bold text-emerald-300 flex items-center gap-1">
-            <i v-if="isSyncing" class="ph ph-spinner spinner"></i><i v-else class="ph ph-cloud-check"></i>
-            {{ isSyncing ? 'Sincronizando...' : 'Sincronizado' }}
+            <i v-if="busy.active" class="ph ph-spinner spinner"></i><i v-else class="ph ph-cloud-check"></i>
+            {{ busy.active ? 'Procesando...' : 'Sincronizado' }}
           </div>
           <button @click="refreshSnapshot" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold">Recargar</button>
           <button @click="logoutInstitutionalSession" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold">Cerrar sesion</button>
@@ -519,6 +537,9 @@
           authError: '',
           isSyncing: false,
           lastSyncError: '',
+          busy: { active: false, label: '' },
+          toast: { show: false, type: 'success', message: '' },
+          toastTimer: null,
 
           isAdmin: false,
           accessControl: { adminEmails: [], allowedEmails: [] },
@@ -632,6 +653,21 @@
       },
       methods: {
         normalizeEmail(value) { return (value || '').toString().trim().replace(/^"|"$/g, '').toLowerCase(); },
+        showToast(type, message, timeoutMs = 7000) {
+          if (this.toastTimer) { clearTimeout(this.toastTimer); this.toastTimer = null; }
+          this.toast = { show: true, type, message };
+          this.toastTimer = setTimeout(() => { this.toast.show = false; }, timeoutMs);
+        },
+        // Envuelve cualquier accion asincrona: muestra el overlay "Procesando..." mientras dura,
+        // y garantiza que siempre se apague al terminar (con exito o con error).
+        async runBusy(label, fn) {
+          this.busy = { active: true, label };
+          try {
+            return await fn();
+          } finally {
+            this.busy = { active: false, label: '' };
+          }
+        },
         normalizeCsvHeader(value) {
           return (value || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
         },
@@ -836,49 +872,77 @@
         async importStudentsFromFile(event) {
           const file = event && event.target && event.target.files ? event.target.files[0] : null;
           if (!file) return;
-          this.isSyncing = true; this.lastSyncError = ''; let imported = 0; let failed = 0; let omitidos = 0;
-          try {
-            const objects = await this.readStudentRecordsFromFile(file);
-            if (objects.length === 0) throw new Error('ARCHIVO_SIN_FILAS_DE_DATOS');
-            for (let i = 0; i < objects.length; i += 1) {
-              const payload = this.buildStudentPayloadFromRecord(objects[i]);
-              if (!payload.Nombre_Alumno || !payload.Apellidos_Alumno) { omitidos += 1; continue; }
-              try {
-                const data = await this.postToServer('upsert_student', payload);
-                this.upsertLocal(this.students, data.student, 'id');
-                imported += 1;
-              } catch (err) { failed += 1; }
+          this.lastSyncError = '';
+          await this.runBusy('Importando alumnado...', async () => {
+            let imported = 0; let omitidos = 0;
+            const errorCounts = {};
+            try {
+              const objects = await this.readStudentRecordsFromFile(file);
+              if (objects.length === 0) throw new Error('ARCHIVO_SIN_FILAS_DE_DATOS');
+              for (let i = 0; i < objects.length; i += 1) {
+                const payload = this.buildStudentPayloadFromRecord(objects[i]);
+                if (!payload.Nombre_Alumno || !payload.Apellidos_Alumno) { omitidos += 1; continue; }
+                try {
+                  const data = await this.postToServer('upsert_student', payload);
+                  this.upsertLocal(this.students, data.student, 'id');
+                  imported += 1;
+                } catch (err) {
+                  const code = (err && err.message) ? err.message : 'ERROR_DESCONOCIDO';
+                  errorCounts[code] = (errorCounts[code] || 0) + 1;
+                }
+              }
+              const failed = Object.values(errorCounts).reduce((a, b) => a + b, 0);
+              const motivos = Object.entries(errorCounts).map(([code, n]) => `${code} (${n})`).join(', ');
+              const resumen = `Importacion completada. Correctos: ${imported}. Fallidos: ${failed}. Omitidos sin nombre/apellidos: ${omitidos}.`;
+              const detalle = motivos ? `\nMotivo(s): ${motivos}` : '';
+              this.showToast(failed > 0 ? 'error' : 'success', resumen + detalle);
+              this.lastSyncError = failed > 0 ? `${resumen} ${detalle}`.trim() : '';
+            } catch (err) {
+              const msg = `Error en importacion de alumnado: ${err.message || 'ARCHIVO_INVALIDO'}`;
+              this.lastSyncError = msg;
+              this.showToast('error', msg);
+            } finally {
+              if (event && event.target) event.target.value = '';
             }
-            this.lastSyncError = `Importacion alumnado completada. Correctos: ${imported}. Fallidos al guardar: ${failed}. Filas sin nombre/apellidos (omitidas): ${omitidos}.`;
-          } catch (err) {
-            this.lastSyncError = `Error en importacion de alumnado: ${err.message || 'ARCHIVO_INVALIDO'}`;
-          } finally {
-            this.isSyncing = false; if (event && event.target) event.target.value = '';
-          }
+          });
         },
         async importCompaniesFromCsv(event) {
           const file = event && event.target && event.target.files ? event.target.files[0] : null;
           if (!file) return;
-          this.isSyncing = true; this.lastSyncError = ''; let imported = 0; let failed = 0;
-          try {
-            const text = await file.text();
-            const objects = this.csvRowsToObjects(this.parseCsv(text));
-            if (objects.length === 0) throw new Error('CSV_SIN_FILAS');
-            for (let i = 0; i < objects.length; i += 1) {
-              const payload = this.mapCompanyCsvRow(objects[i]);
-              if (!payload.Nombre_Empresa) { failed += 1; continue; }
-              try {
-                const data = await this.postToServer('upsert_company', payload);
-                this.upsertLocal(this.companies, data.company, 'id');
-                imported += 1;
-              } catch (err) { failed += 1; }
+          this.lastSyncError = '';
+          await this.runBusy('Importando empresas...', async () => {
+            let imported = 0; let omitidos = 0;
+            const errorCounts = {};
+            try {
+              const text = await file.text();
+              const objects = this.csvRowsToObjects(this.parseCsv(text));
+              if (objects.length === 0) throw new Error('CSV_SIN_FILAS');
+              for (let i = 0; i < objects.length; i += 1) {
+                const payload = this.mapCompanyCsvRow(objects[i]);
+                if (!payload.Nombre_Empresa) { omitidos += 1; continue; }
+                try {
+                  const data = await this.postToServer('upsert_company', payload);
+                  this.upsertLocal(this.companies, data.company, 'id');
+                  imported += 1;
+                } catch (err) {
+                  const code = (err && err.message) ? err.message : 'ERROR_DESCONOCIDO';
+                  errorCounts[code] = (errorCounts[code] || 0) + 1;
+                }
+              }
+              const failed = Object.values(errorCounts).reduce((a, b) => a + b, 0);
+              const motivos = Object.entries(errorCounts).map(([code, n]) => `${code} (${n})`).join(', ');
+              const resumen = `Importacion completada. Correctas: ${imported}. Fallidas: ${failed}. Omitidas sin nombre: ${omitidos}.`;
+              const detalle = motivos ? `\nMotivo(s): ${motivos}` : '';
+              this.showToast(failed > 0 ? 'error' : 'success', resumen + detalle);
+              this.lastSyncError = failed > 0 ? `${resumen} ${detalle}`.trim() : '';
+            } catch (err) {
+              const msg = `Error en importacion de empresas: ${err.message || 'CSV_INVALIDO'}`;
+              this.lastSyncError = msg;
+              this.showToast('error', msg);
+            } finally {
+              if (event && event.target) event.target.value = '';
             }
-            this.lastSyncError = `Importacion empresas completada. Correctos: ${imported}. Fallidos: ${failed}.`;
-          } catch (err) {
-            this.lastSyncError = `Error en importacion de empresas: ${err.message || 'CSV_INVALIDO'}`;
-          } finally {
-            this.isSyncing = false; if (event && event.target) event.target.value = '';
-          }
+          });
         },
 
         // ---------- AUTENTICACION INSTITUCIONAL ----------
@@ -993,23 +1057,27 @@
         },
         async refreshSnapshot() {
           if (!this.isAuthenticated) return;
-          this.isSyncing = true; this.lastSyncError = '';
-          try {
-            const data = await this.postToServer('read', {});
-            this.students = Array.isArray(data.students) ? data.students : [];
-            this.companies = Array.isArray(data.companies) ? data.companies : [];
-            this.documents = Array.isArray(data.documents) ? data.documents : [];
-            this.accessControl = data.accessControl || { adminEmails: [], allowedEmails: [] };
-            this.applyDocSettingsFromSnapshot(data.docSettings || {});
-            this.isAdmin = !!(data.user && data.user.isAdmin);
-          } catch (err) {
-            const code = (err && err.message) ? err.message : 'READ_FAILED';
-            this.lastSyncError = `Fallo leyendo Drive: ${code}`;
-            if (['EMAIL_NOT_ALLOWED','TOKEN_REQUIRED','INVALID_TOKEN','TOKENINFO_HTTP_400','INVALID_DOMAIN','INVALID_HOSTED_DOMAIN'].includes(code)) {
-              this.authError = this.mapServerAuthError(code);
-              await this.logoutInstitutionalSession();
+          this.lastSyncError = '';
+          await this.runBusy('Cargando datos desde Drive...', async () => {
+            try {
+              const data = await this.postToServer('read', {});
+              this.students = Array.isArray(data.students) ? data.students : [];
+              this.companies = Array.isArray(data.companies) ? data.companies : [];
+              this.documents = Array.isArray(data.documents) ? data.documents : [];
+              this.accessControl = data.accessControl || { adminEmails: [], allowedEmails: [] };
+              this.applyDocSettingsFromSnapshot(data.docSettings || {});
+              this.isAdmin = !!(data.user && data.user.isAdmin);
+              this.showToast('success', 'Datos actualizados correctamente.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'READ_FAILED';
+              this.lastSyncError = `Fallo leyendo Drive: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              if (['EMAIL_NOT_ALLOWED','TOKEN_REQUIRED','INVALID_TOKEN','TOKENINFO_HTTP_400','INVALID_DOMAIN','INVALID_HOSTED_DOMAIN'].includes(code)) {
+                this.authError = this.mapServerAuthError(code);
+                await this.logoutInstitutionalSession();
+              }
             }
-          } finally { this.isSyncing = false; }
+          });
         },
 
         // ---------- AYUDANTES DE LECTURA CRUZADA ----------
@@ -1039,26 +1107,33 @@
         editStudent(s) { this.studentForm = { ...this.studentForm, ...JSON.parse(JSON.stringify(s || {})) }; this.studentFormOpen = true; this.activeTab = 'students'; },
         cancelStudentForm() { this.startNewStudent(false); },
         async saveStudent() {
-          this.isSyncing = true; this.lastSyncError = '';
-          try {
-            const data = await this.postToServer('upsert_student', this.studentForm);
-            this.upsertLocal(this.students, data.student, 'id');
-            this.startNewStudent(false);
-          } catch (err) {
-            this.lastSyncError = `Fallo guardando alumno/a: ${err.message || 'ERROR'}`;
-          } finally { this.isSyncing = false; }
+          this.lastSyncError = '';
+          await this.runBusy('Guardando alumno/a...', async () => {
+            try {
+              const data = await this.postToServer('upsert_student', this.studentForm);
+              this.upsertLocal(this.students, data.student, 'id');
+              this.startNewStudent(false);
+              this.showToast('success', `Alumno/a "${data.student.Nombre_Alumno} ${data.student.Apellidos_Alumno}" guardado correctamente.`);
+            } catch (err) {
+              this.lastSyncError = `Fallo guardando alumno/a: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
         async removeStudent(s) {
           if (!this.isAdmin) return;
           if (!confirm(`Eliminar a ${s.Nombre_Alumno} ${s.Apellidos_Alumno}?`)) return;
-          this.isSyncing = true;
-          try {
-            await this.postToServer('delete_student', { id: s.id });
-            this.students = this.students.filter((x) => x.id !== s.id);
-            this.documents = this.documents.filter((x) => x.StudentId !== s.id);
-          } catch (err) {
-            this.lastSyncError = `Fallo eliminando alumno/a: ${err.message || 'ERROR'}`;
-          } finally { this.isSyncing = false; }
+          await this.runBusy('Eliminando alumno/a...', async () => {
+            try {
+              await this.postToServer('delete_student', { id: s.id });
+              this.students = this.students.filter((x) => x.id !== s.id);
+              this.documents = this.documents.filter((x) => x.StudentId !== s.id);
+              this.showToast('success', `Alumno/a "${s.Nombre_Alumno} ${s.Apellidos_Alumno}" eliminado.`);
+            } catch (err) {
+              this.lastSyncError = `Fallo eliminando alumno/a: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
 
         // ---------- EMPRESAS ----------
@@ -1082,27 +1157,34 @@
         },
         removeTutorEmpresa(index) { this.companyForm.TutoresEmpresa.splice(index, 1); },
         async saveCompany() {
-          this.isSyncing = true; this.lastSyncError = '';
-          try {
-            const data = await this.postToServer('upsert_company', this.companyForm);
-            this.upsertLocal(this.companies, data.company, 'id');
-            this.startNewCompany(false);
-          } catch (err) {
-            this.lastSyncError = `Fallo guardando empresa: ${err.message || 'ERROR'}`;
-          } finally { this.isSyncing = false; }
+          this.lastSyncError = '';
+          await this.runBusy('Guardando empresa...', async () => {
+            try {
+              const data = await this.postToServer('upsert_company', this.companyForm);
+              this.upsertLocal(this.companies, data.company, 'id');
+              this.startNewCompany(false);
+              this.showToast('success', `Empresa "${data.company.Nombre_Empresa}" guardada correctamente.`);
+            } catch (err) {
+              this.lastSyncError = `Fallo guardando empresa: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
         async removeCompany(c) {
           if (!this.isAdmin) return;
           if (!confirm(`Eliminar empresa ${c.Nombre_Empresa}?`)) return;
-          this.isSyncing = true;
-          try {
-            await this.postToServer('delete_company', { id: c.id });
-            this.companies = this.companies.filter((x) => x.id !== c.id);
-            this.students = this.students.map((s) => (s.EmpresaId === c.id ? { ...s, EmpresaId: '', TutorEmpresaId: '' } : s));
-            this.documents = this.documents.filter((x) => x.CompanyId !== c.id);
-          } catch (err) {
-            this.lastSyncError = `Fallo eliminando empresa: ${err.message || 'ERROR'}`;
-          } finally { this.isSyncing = false; }
+          await this.runBusy('Eliminando empresa...', async () => {
+            try {
+              await this.postToServer('delete_company', { id: c.id });
+              this.companies = this.companies.filter((x) => x.id !== c.id);
+              this.students = this.students.map((s) => (s.EmpresaId === c.id ? { ...s, EmpresaId: '', TutorEmpresaId: '' } : s));
+              this.documents = this.documents.filter((x) => x.CompanyId !== c.id);
+              this.showToast('success', `Empresa "${c.Nombre_Empresa}" eliminada.`);
+            } catch (err) {
+              this.lastSyncError = `Fallo eliminando empresa: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
 
         // ---------- DOCUMENTOS ----------
@@ -1112,59 +1194,68 @@
         },
         onGenDocStudentChange() { this.genDocForm.tutorEmpresaId = ''; },
         async generateDocumentPdf() {
-          if (!this.genDocForm.tipo) { this.lastSyncError = 'Selecciona un tipo de documento.'; return; }
-          if (!this.genDocForm.studentId) { this.lastSyncError = 'Selecciona un alumno/a.'; return; }
-          this.isSyncing = true; this.lastSyncError = '';
-          try {
-            const payload = {
-              tipo: this.genDocForm.tipo,
-              studentId: this.genDocForm.studentId,
-              tutorEmpresaId: this.genDocForm.tutorEmpresaId,
-              campos: this.parseGlobalFieldsFromEditor(this.genDocForm.camposText)
-            };
-            const data = await this.postToServer('generate_document_pdf', payload);
-            if (data && data.document) this.documents.push(data.document);
-            this.genDocFormOpen = false;
-            this.lastSyncError = data && data.document && data.document.url ? `Documento generado: ${data.document.url}` : 'Documento generado correctamente.';
-          } catch (err) {
-            this.lastSyncError = `Fallo generando el documento: ${err.message || 'ERROR'}`;
-          } finally { this.isSyncing = false; }
+          if (!this.genDocForm.tipo) { this.showToast('error', 'Selecciona un tipo de documento.'); return; }
+          if (!this.genDocForm.studentId) { this.showToast('error', 'Selecciona un alumno/a.'); return; }
+          this.lastSyncError = '';
+          await this.runBusy('Generando documento PDF...', async () => {
+            try {
+              const payload = {
+                tipo: this.genDocForm.tipo,
+                studentId: this.genDocForm.studentId,
+                tutorEmpresaId: this.genDocForm.tutorEmpresaId,
+                campos: this.parseGlobalFieldsFromEditor(this.genDocForm.camposText)
+              };
+              const data = await this.postToServer('generate_document_pdf', payload);
+              if (data && data.document) this.documents.push(data.document);
+              this.genDocFormOpen = false;
+              this.showToast('success', 'Documento generado y guardado en Drive correctamente.');
+            } catch (err) {
+              this.lastSyncError = `Fallo generando el documento: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
         async removeDocument(d) {
           if (!this.isAdmin) return;
           if (!confirm('Eliminar este registro de documento? (el PDF en Drive no se borra)')) return;
-          this.isSyncing = true;
-          try {
-            await this.postToServer('delete_document', { id: d.id });
-            this.documents = this.documents.filter((x) => x.id !== d.id);
-          } catch (err) {
-            this.lastSyncError = `Fallo eliminando documento: ${err.message || 'ERROR'}`;
-          } finally { this.isSyncing = false; }
+          await this.runBusy('Eliminando documento...', async () => {
+            try {
+              await this.postToServer('delete_document', { id: d.id });
+              this.documents = this.documents.filter((x) => x.id !== d.id);
+              this.showToast('success', 'Documento eliminado del listado.');
+            } catch (err) {
+              this.lastSyncError = `Fallo eliminando documento: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
 
         // ---------- ADMIN ----------
         addAllowedEmail() {
           const email = this.normalizeEmail(this.newAllowedEmail);
           if (!email) return;
-          if (!email.endsWith(`@${this.institutionalDomain}`)) { this.lastSyncError = `Solo se permiten cuentas @${this.institutionalDomain}`; return; }
+          if (!email.endsWith(`@${this.institutionalDomain}`)) { this.showToast('error', `Solo se permiten cuentas @${this.institutionalDomain}`); return; }
           if (!this.accessControl.allowedEmails.includes(email)) { this.accessControl.allowedEmails.push(email); this.accessControl.allowedEmails.sort((a, b) => a.localeCompare(b)); }
           this.newAllowedEmail = '';
         },
         removeAllowedEmail(email) { this.accessControl.allowedEmails = this.accessControl.allowedEmails.filter((e) => e !== email); },
         async saveAllowedEmails() {
           if (!this.isAdmin) return;
-          this.isSyncing = true;
-          try {
-            const data = await this.postToServer('set_allowed_emails', { allowedEmails: this.accessControl.allowedEmails });
-            this.accessControl = data.accessControl || this.accessControl;
-          } catch (err) {
-            this.lastSyncError = `Fallo guardando allowlist: ${err.message || 'ERROR'}`;
-          } finally { this.isSyncing = false; }
+          await this.runBusy('Guardando lista de acceso...', async () => {
+            try {
+              const data = await this.postToServer('set_allowed_emails', { allowedEmails: this.accessControl.allowedEmails });
+              this.accessControl = data.accessControl || this.accessControl;
+              this.showToast('success', 'Lista de correos permitidos guardada.');
+            } catch (err) {
+              this.lastSyncError = `Fallo guardando allowlist: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
         addTemplateMapping() {
           const tipo = (this.newTemplateTipo || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
           const docId = (this.newTemplateDocId || '').trim();
-          if (!tipo || !docId) { this.lastSyncError = 'Indica un tipo y una plantilla validos.'; return; }
+          if (!tipo || !docId) { this.showToast('error', 'Indica un tipo y una plantilla validos.'); return; }
           this.docSettings.templates = { ...this.docSettings.templates, [tipo]: docId };
           this.newTemplateTipo = ''; this.newTemplateDocId = '';
         },
@@ -1175,30 +1266,35 @@
         },
         async saveDocSettings() {
           if (!this.isAdmin) return;
-          this.isSyncing = true;
-          try {
-            const payload = {
-              outputFolderId: this.docSettingsForm.outputFolderId,
-              globalFields: this.parseGlobalFieldsFromEditor(this.docSettingsGlobalText),
-              templates: this.docSettings.templates
-            };
-            const data = await this.postToServer('set_doc_settings', payload);
-            this.applyDocSettingsFromSnapshot(data.docSettings || payload);
-            this.lastSyncError = 'Configuracion documental guardada correctamente.';
-          } catch (err) {
-            this.lastSyncError = `Fallo guardando configuracion documental: ${err.message || 'ERROR'}`;
-          } finally { this.isSyncing = false; }
+          await this.runBusy('Guardando configuracion documental...', async () => {
+            try {
+              const payload = {
+                outputFolderId: this.docSettingsForm.outputFolderId,
+                globalFields: this.parseGlobalFieldsFromEditor(this.docSettingsGlobalText),
+                templates: this.docSettings.templates
+              };
+              const data = await this.postToServer('set_doc_settings', payload);
+              this.applyDocSettingsFromSnapshot(data.docSettings || payload);
+              this.showToast('success', 'Configuracion documental guardada correctamente.');
+            } catch (err) {
+              this.lastSyncError = `Fallo guardando configuracion documental: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
         async previewTemplateFor(templateDocId) {
           if (!this.isAdmin) return;
-          this.isSyncing = true;
-          try {
-            const data = await this.postToServer('preview_template_placeholders', { templateDocId });
-            this.templatePlaceholdersDetected = Array.isArray(data.placeholdersDetected) ? data.placeholdersDetected : [];
-            this.lastSyncError = this.templatePlaceholdersDetected.length ? `Campos detectados: ${this.templatePlaceholdersDetected.length}` : 'No se detectaron campos <...> en la plantilla.';
-          } catch (err) {
-            this.lastSyncError = `No se pudo leer la plantilla: ${err.message || 'ERROR'}`;
-          } finally { this.isSyncing = false; }
+          await this.runBusy('Leyendo campos de la plantilla...', async () => {
+            try {
+              const data = await this.postToServer('preview_template_placeholders', { templateDocId });
+              this.templatePlaceholdersDetected = Array.isArray(data.placeholdersDetected) ? data.placeholdersDetected : [];
+              const msg = this.templatePlaceholdersDetected.length ? `Campos detectados: ${this.templatePlaceholdersDetected.length}` : 'No se detectaron campos <...> en la plantilla.';
+              this.showToast(this.templatePlaceholdersDetected.length ? 'success' : 'error', msg);
+            } catch (err) {
+              this.lastSyncError = `No se pudo leer la plantilla: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
 
         upsertLocal(arr, item, key) {
