@@ -90,6 +90,10 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+          <select v-model="selectedCursoAcademicoId" class="px-3 py-2 rounded-lg bg-[#040914] border border-slate-700 text-xs font-bold text-slate-200">
+            <option value="">Todos los cursos</option>
+            <option v-for="c in cursosAcademicos" :key="c.id" :value="c.id">{{ c.Nombre_Curso }}{{ c.id === activeCursoAcademicoId ? ' (predeterminado)' : '' }}</option>
+          </select>
           <div class="px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-200 font-semibold max-w-[280px] truncate">{{ currentUserEmail }}</div>
           <div v-if="isAdmin" class="px-3 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-xs font-bold text-indigo-200">Perfil Admin</div>
           <div class="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-bold text-emerald-300 flex items-center gap-1">
@@ -122,10 +126,10 @@
       <section v-if="activeTab === 'dashboard'" class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-            <p class="text-xs text-slate-400">Alumnos</p><p class="text-2xl font-black text-white">{{ students.length }}</p>
+            <p class="text-xs text-slate-400">Alumnos</p><p class="text-2xl font-black text-white">{{ studentsDelCurso.length }}</p>
           </div>
           <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-            <p class="text-xs text-slate-400">Empresas</p><p class="text-2xl font-black text-white">{{ companies.length }}</p>
+            <p class="text-xs text-slate-400">Empresas</p><p class="text-2xl font-black text-white">{{ companiesDelCurso.length }}</p>
           </div>
           <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
             <p class="text-xs text-slate-400">Documentos generados</p><p class="text-2xl font-black text-white">{{ documents.length }}</p>
@@ -187,6 +191,7 @@
                   <th class="p-2 text-left">Alumno/a</th>
                   <th class="p-2 text-left">Curso/Grupo/Familia</th>
                   <th class="p-2 text-left">Empresa</th>
+                  <th class="p-2 text-left">Tutor/a centro</th>
                   <th class="p-2 text-left">Estado FFE</th>
                   <th class="p-2 text-left">Documentos</th>
                   <th class="p-2 text-left">Acciones</th>
@@ -200,6 +205,7 @@
                   </td>
                   <td class="p-2">{{ s.Curso_Alumno || '-' }} / {{ s.Grupo_Alumno || '-' }}<div class="text-slate-400">{{ s.Familia_Profesional || 'Sin familia' }}</div></td>
                   <td class="p-2">{{ companyNameById(s.EmpresaId) }}<div class="text-slate-400">{{ tutorEmpresaNameById(s.EmpresaId, s.TutorEmpresaId) }}</div></td>
+                  <td class="p-2">{{ tutorCentroNameById(s.TutorCentroId) || '-' }}</td>
                   <td class="p-2">{{ s.Estado_FFE || 'pendiente' }}</td>
                   <td class="p-2">
                     <button @click="viewDocumentsForStudent(s)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">{{ documentCountForStudent(s.id) }} doc.</button>
@@ -211,7 +217,7 @@
                     </div>
                   </td>
                 </tr>
-                <tr v-if="filteredStudents.length === 0"><td colspan="6" class="p-4 text-center text-slate-400">No hay alumnos que coincidan con la busqueda.</td></tr>
+                <tr v-if="filteredStudents.length === 0"><td colspan="7" class="p-4 text-center text-slate-400">No hay alumnos que coincidan con la busqueda.</td></tr>
               </tbody>
             </table>
           </div>
@@ -225,8 +231,21 @@
             <div><span class="field-label">DNI</span><input v-model="studentForm.DNI_Alumno" class="field" /></div>
             <div><span class="field-label">Email</span><input v-model="studentForm.Email_Alumno" class="field" /></div>
             <div><span class="field-label">Telefono</span><input v-model="studentForm.Telefono_Alumno" class="field" /></div>
-            <div><span class="field-label">Curso</span><input v-model="studentForm.Curso_Alumno" class="field" /></div>
-            <div><span class="field-label">Grupo</span><input v-model="studentForm.Grupo_Alumno" class="field" /></div>
+            <div>
+              <span class="field-label">Curso (1 o 2)</span>
+              <input v-model="studentForm.Curso_Alumno" @change="recalcularGrupoAlumno" class="field" />
+            </div>
+            <div>
+              <span class="field-label">Ciclo formativo</span>
+              <select v-model="studentForm.EstudioId" @change="recalcularGrupoAlumno" class="field">
+                <option value="">Sin asignar</option>
+                <option v-for="e in estudios" :key="e.id" :value="e.id">{{ e.Codigo_Estudio }} - {{ e.Nombre_Estudio }}</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Grupo (calculado, editable)</span>
+              <input v-model="studentForm.Grupo_Alumno" class="field" />
+            </div>
             <div><span class="field-label">Familia profesional</span><input v-model="studentForm.Familia_Profesional" class="field" /></div>
             <div>
               <span class="field-label">Empresa asignada</span>
@@ -255,7 +274,13 @@
             <div><span class="field-label">Fecha fin FFE</span><input v-model="studentForm.Fecha_Fin_FFE" type="date" class="field" /></div>
             <div><span class="field-label">Horas previstas</span><input v-model.number="studentForm.Horas_Previstas_FFE" type="number" min="0" class="field" /></div>
             <div><span class="field-label">Horas realizadas</span><input v-model.number="studentForm.Horas_Realizadas_FFE" type="number" min="0" class="field" /></div>
-            <div><span class="field-label">Tutor/a del centro</span><input v-model="studentForm.Tutor_Centro" class="field" /></div>
+            <div>
+              <span class="field-label">Tutor/a del centro</span>
+              <select v-model="studentForm.TutorCentroId" class="field">
+                <option value="">Sin asignar</option>
+                <option v-for="t in tutoresCentro" :key="t.id" :value="t.id">{{ t.Nombre_Tutor_Centro }} {{ t.Apellidos_Tutor_Centro }}</option>
+              </select>
+            </div>
             <div class="md:col-span-2 lg:col-span-3"><span class="field-label">Observaciones</span><textarea v-model="studentForm.Observaciones_Alumno" class="field"></textarea></div>
           </div>
           <div class="mt-3 flex gap-2">
@@ -470,6 +495,173 @@
         </div>
 
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+            <h3 class="text-sm font-bold text-slate-200">Tutores del centro educativo</h3>
+            <button @click="startNewTutorCentro" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nuevo tutor/a</button>
+          </div>
+          <p class="text-xs text-slate-400 mb-3">Este listado alimenta el desplegable "Tutor/a del centro" de la ficha de cada alumno.</p>
+
+          <div class="overflow-x-auto rounded-lg border border-slate-800 mb-3">
+            <table class="w-full text-xs">
+              <thead class="bg-[#040914] text-slate-300">
+                <tr>
+                  <th class="p-2 text-left">Nombre</th>
+                  <th class="p-2 text-left">DNI</th>
+                  <th class="p-2 text-left">Email</th>
+                  <th class="p-2 text-left">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="t in tutoresCentro" :key="t.id" class="border-t border-slate-800">
+                  <td class="p-2 font-semibold">{{ t.Nombre_Tutor_Centro }} {{ t.Apellidos_Tutor_Centro }}</td>
+                  <td class="p-2">{{ t.DNI_Tutor_Centro || '-' }}</td>
+                  <td class="p-2">{{ t.Email_Tutor_Centro || '-' }}</td>
+                  <td class="p-2">
+                    <div class="flex gap-1">
+                      <button @click="editTutorCentro(t)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
+                      <button @click="removeTutorCentro(t)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="tutoresCentro.length === 0"><td colspan="4" class="p-3 text-center text-slate-400">Sin tutores del centro todavia.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-if="tutorCentroFormOpen" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
+            <div><span class="field-label">Nombre</span><input v-model="tutorCentroForm.Nombre_Tutor_Centro" class="field" /></div>
+            <div><span class="field-label">Apellidos</span><input v-model="tutorCentroForm.Apellidos_Tutor_Centro" class="field" /></div>
+            <div><span class="field-label">DNI</span><input v-model="tutorCentroForm.DNI_Tutor_Centro" class="field" /></div>
+            <div><span class="field-label">Correo electronico</span><input v-model="tutorCentroForm.Email_Tutor_Centro" class="field" /></div>
+            <div class="md:col-span-2 flex gap-2">
+              <button @click="saveTutorCentro" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar tutor/a</button>
+              <button @click="tutorCentroFormOpen = false" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+            <h3 class="text-sm font-bold text-slate-200">Cursos academicos</h3>
+            <button @click="startNewCursoAcademico" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Crear curso academico</button>
+          </div>
+          <p class="text-xs text-slate-400 mb-3">Los alumnos y empresas que no tengan curso asignado siguen viendose siempre en "Todos los cursos" (arriba, en la cabecera).</p>
+
+          <div class="overflow-x-auto rounded-lg border border-slate-800 mb-3">
+            <table class="w-full text-xs">
+              <thead class="bg-[#040914] text-slate-300">
+                <tr>
+                  <th class="p-2 text-left">Nombre</th>
+                  <th class="p-2 text-left">Origen</th>
+                  <th class="p-2 text-left">Predeterminado</th>
+                  <th class="p-2 text-left">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="c in cursosAcademicos" :key="c.id" class="border-t border-slate-800">
+                  <td class="p-2 font-semibold">{{ c.Nombre_Curso }}</td>
+                  <td class="p-2 text-slate-400">{{ c.ClonadoDeId ? ('Copia de ' + (cursoNombreById(c.ClonadoDeId) || 'curso eliminado')) : 'Vacio' }}</td>
+                  <td class="p-2">
+                    <span v-if="c.id === activeCursoAcademicoId" class="px-2 py-1 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-200">Predeterminado</span>
+                    <button v-else @click="marcarCursoActivo(c)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Marcar como predeterminado</button>
+                  </td>
+                  <td class="p-2">
+                    <button @click="editCursoAcademico(c)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Renombrar</button>
+                  </td>
+                </tr>
+                <tr v-if="cursosAcademicos.length === 0"><td colspan="4" class="p-3 text-center text-slate-400">Sin cursos academicos todavia. Mientras no crees ninguno, todo se ve bajo "Todos los cursos".</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-if="cursoAcademicoFormOpen" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
+            <div>
+              <span class="field-label">Nombre del curso (ej. 2026-2027)</span>
+              <input v-model="cursoAcademicoForm.Nombre_Curso" class="field" />
+            </div>
+            <div v-if="!cursoAcademicoForm.id">
+              <span class="field-label">Contenido inicial</span>
+              <select v-model="cursoAcademicoForm.cloneFromId" class="field">
+                <option value="">Crear vacio (sin alumnado ni empresas)</option>
+                <option v-for="c in cursosAcademicos" :key="c.id" :value="c.id">Copiar de: {{ c.Nombre_Curso }}</option>
+              </select>
+            </div>
+            <div v-if="!cursoAcademicoForm.id" class="flex items-center gap-2">
+              <input type="checkbox" id="marcarActivoCheck" v-model="cursoAcademicoForm.marcarActivo" />
+              <label for="marcarActivoCheck" class="text-xs text-slate-300">Marcar como predeterminado al crearlo</label>
+            </div>
+            <div class="md:col-span-2 flex gap-2">
+              <button @click="saveCursoAcademico" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar</button>
+              <button @click="cursoAcademicoFormOpen = false" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+            <h3 class="text-sm font-bold text-slate-200">Ciclos formativos</h3>
+            <button @click="startNewEstudio" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nuevo ciclo</button>
+          </div>
+          <p class="text-xs text-slate-400 mb-3">El Grupo de cada alumno se calcula como Curso + Codigo del ciclo (ej. "1-SAN201").</p>
+
+          <div class="overflow-x-auto rounded-lg border border-slate-800 mb-3">
+            <table class="w-full text-xs">
+              <thead class="bg-[#040914] text-slate-300">
+                <tr>
+                  <th class="p-2 text-left">Codigo</th>
+                  <th class="p-2 text-left">Nombre completo</th>
+                  <th class="p-2 text-left">Grado</th>
+                  <th class="p-2 text-left">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="e in estudios" :key="e.id" class="border-t border-slate-800">
+                  <td class="p-2 font-semibold">{{ e.Codigo_Estudio }}</td>
+                  <td class="p-2">{{ e.Nombre_Estudio }}</td>
+                  <td class="p-2">{{ e.Grado_Estudio || '-' }}</td>
+                  <td class="p-2">
+                    <div class="flex gap-1">
+                      <button @click="editEstudio(e)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
+                      <button @click="removeEstudio(e)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="estudios.length === 0"><td colspan="4" class="p-3 text-center text-slate-400">Sin ciclos formativos todavia.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-if="estudioFormOpen" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
+            <div><span class="field-label">Codigo (ej. SAN201)</span><input v-model="estudioForm.Codigo_Estudio" class="field" /></div>
+            <div><span class="field-label">Nombre completo</span><input v-model="estudioForm.Nombre_Estudio" class="field" /></div>
+            <div>
+              <span class="field-label">Grado</span>
+              <select v-model="estudioForm.Grado_Estudio" class="field">
+                <option value="">Selecciona</option>
+                <option value="Basico">Basico</option>
+                <option value="Medio">Medio</option>
+                <option value="Superior">Superior</option>
+              </select>
+            </div>
+            <div class="md:col-span-3 flex gap-2">
+              <button @click="saveEstudio" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar ciclo</button>
+              <button @click="estudioFormOpen = false" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h3 class="text-sm font-bold text-slate-200 mb-2">Datos del centro educativo</h3>
+          <p class="text-xs text-slate-400 mb-3">Estos datos se usan para rellenar los marcadores &lt;...&gt; de los documentos que no dependen de un alumno o empresa concretos.</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+            <div v-for="f in centroFieldDefs" :key="f.key">
+              <span class="field-label">{{ f.label }}</span>
+              <input v-model="centroForm[f.key]" class="field" />
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <h3 class="text-sm font-bold text-slate-200 mb-2">Configuracion documental</h3>
           <p class="text-xs text-slate-400 mb-3">Datos globales del centro y carpeta de salida de los PDF generados.</p>
 
@@ -477,8 +669,8 @@
             <input v-model="docSettingsForm.outputFolderId" placeholder="ID o enlace de la carpeta de Drive donde guardar los PDF" class="field" />
           </div>
 
-          <label class="text-xs text-slate-300 font-semibold mb-1 block">Campos globales (uno por linea, formato CLAVE=valor)</label>
-          <textarea v-model="docSettingsGlobalText" class="field min-h-[120px]" placeholder="CENTRO_NOMBRE=Centro Sagrado Corazon&#10;CENTRO_DIRECCION=Calle ...&#10;REPRESENTANTE_CENTRO=Nombre Apellidos"></textarea>
+          <label class="text-xs text-slate-300 font-semibold mb-1 block">Otros campos globales (uno por linea, formato CLAVE=valor)</label>
+          <textarea v-model="docSettingsGlobalText" class="field min-h-[100px]" placeholder="CURSO_ESCOLAR=2026-2027&#10;OTRO_CAMPO=valor"></textarea>
 
           <div class="mt-4 pt-4 border-t border-slate-800">
             <h4 class="text-sm font-bold text-slate-200 mb-2">Tipos de documento y plantillas</h4>
@@ -520,7 +712,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbx_ovrQDjcEFJS95jE6PJkj8BFDcOEscSKZdEzNI2vSVO7auSPiFP7w3q8I7nj8z-HK/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbxVUVgS4x5PV_IkfHPTVFx7dxjAyWKy8c_KInjPp9Sj7CRy3LNvXViaGUMMNNLLDCD2/exec';
 
     const { createApp } = Vue;
 
@@ -550,6 +742,34 @@
           newTemplateTipo: '',
           newTemplateDocId: '',
           templatePlaceholdersDetected: [],
+
+          centroFieldDefs: [
+            { key: 'Nombre_Centro_Docente', label: 'Nombre del centro docente' },
+            { key: 'Nombre_Representante_Centro', label: 'Nombre del representante' },
+            { key: 'NIF_Representante_Centro', label: 'NIF del representante' },
+            { key: 'Codigo_Centro', label: 'Codigo de centro' },
+            { key: 'Calle_Centro', label: 'Calle' },
+            { key: 'Ciudad_Centro', label: 'Ciudad' },
+            { key: 'CP_Centro', label: 'Codigo postal' },
+            { key: 'NIF_Centro', label: 'NIF del centro' },
+            { key: 'Telefono_Centro', label: 'Telefono' },
+            { key: 'Mail_Centro', label: 'Correo electronico' }
+          ],
+          centroForm: { Nombre_Centro_Docente: '', Nombre_Representante_Centro: '', NIF_Representante_Centro: '', Codigo_Centro: '', Calle_Centro: '', Ciudad_Centro: '', CP_Centro: '', NIF_Centro: '', Telefono_Centro: '', Mail_Centro: '' },
+
+          tutoresCentro: [],
+          tutorCentroForm: {},
+          tutorCentroFormOpen: false,
+
+          cursosAcademicos: [],
+          activeCursoAcademicoId: '',
+          selectedCursoAcademicoId: '',
+          cursoAcademicoForm: { Nombre_Curso: '', cloneFromId: '', marcarActivo: false },
+          cursoAcademicoFormOpen: false,
+
+          estudios: [],
+          estudioForm: {},
+          estudioFormOpen: false,
 
           students: [],
           companies: [],
@@ -585,18 +805,27 @@
           if (this.isAdmin) base.push({ key: 'security', label: 'Admin', icon: 'ph ph-shield-check' });
           return base;
         },
+        effectiveCursoAcademicoId() { return this.selectedCursoAcademicoId || this.activeCursoAcademicoId || ''; },
+        studentsDelCurso() {
+          if (!this.selectedCursoAcademicoId) return this.students;
+          return this.students.filter((s) => (s.CursoAcademicoId || '') === this.selectedCursoAcademicoId);
+        },
+        companiesDelCurso() {
+          if (!this.selectedCursoAcademicoId) return this.companies;
+          return this.companies.filter((c) => (c.CursoAcademicoId || '') === this.selectedCursoAcademicoId);
+        },
         filteredStudents() {
           const q = (this.studentQuery || '').toLowerCase().trim();
-          if (!q) return this.students;
-          return this.students.filter((s) => {
+          if (!q) return this.studentsDelCurso;
+          return this.studentsDelCurso.filter((s) => {
             const text = `${s.Nombre_Alumno||''} ${s.Apellidos_Alumno||''} ${s.Curso_Alumno||''} ${s.Grupo_Alumno||''} ${s.Familia_Profesional||''}`.toLowerCase();
             return text.includes(q);
           });
         },
         filteredCompanies() {
           const q = (this.companyQuery || '').toLowerCase().trim();
-          if (!q) return this.companies;
-          return this.companies.filter((c) => {
+          if (!q) return this.companiesDelCurso;
+          return this.companiesDelCurso.filter((c) => {
             const text = `${c.Nombre_Empresa||''} ${c.NIF_Empresa||''} ${c.Actividad_Empresa||''}`.toLowerCase();
             return text.includes(q);
           });
@@ -619,11 +848,11 @@
             .sort((a, b) => (b.generatedAt || '').localeCompare(a.generatedAt || ''));
         },
         activeFfeCount() {
-          return this.students.filter((s) => (s.Estado_FFE || '').toLowerCase() === 'activa').length;
+          return this.studentsDelCurso.filter((s) => (s.Estado_FFE || '').toLowerCase() === 'activa').length;
         },
         resumenPorFamilia() {
           const map = {};
-          this.students.forEach((s) => {
+          this.studentsDelCurso.forEach((s) => {
             const fam = s.Familia_Profesional || 'Sin familia profesional';
             const empId = s.EmpresaId || '__sin_empresa__';
             if (!map[fam]) map[fam] = {};
@@ -722,6 +951,7 @@
           if (source === 'student') return 'Alumno';
           if (source === 'company') return 'Empresa';
           if (source === 'tutorEmpresa') return 'Tutor de empresa';
+          if (source === 'tutorCentro') return 'Tutor de centro';
           return 'Documento';
         },
         placeholderSourceClass(source) {
@@ -729,7 +959,13 @@
           if (source === 'student') return 'px-2 py-0.5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-200';
           if (source === 'company') return 'px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-200';
           if (source === 'tutorEmpresa') return 'px-2 py-0.5 rounded bg-sky-500/20 border border-sky-500/40 text-sky-200';
+          if (source === 'tutorCentro') return 'px-2 py-0.5 rounded bg-fuchsia-500/20 border border-fuchsia-500/40 text-fuchsia-200';
           return 'px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-200';
+        },
+        // Replica en el cliente el mismo criterio de normalizacion que usa el backend
+        // (normalizePlaceholderKey_), para poder separar los campos "de centro" del resto.
+        normalizePlaceholderKey(value) {
+          return (value || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toUpperCase();
         },
         applyDocSettingsFromSnapshot(settings) {
           const s = settings && typeof settings === 'object' ? settings : {};
@@ -739,7 +975,19 @@
             templates: (s.templates && typeof s.templates === 'object') ? s.templates : {}
           };
           this.docSettingsForm.outputFolderId = this.docSettings.outputFolderId;
-          this.docSettingsGlobalText = this.formatGlobalFieldsForEditor(this.docSettings.globalFields);
+
+          const centroKeys = this.centroFieldDefs.map((f) => this.normalizePlaceholderKey(f.key));
+          const centroForm = {};
+          this.centroFieldDefs.forEach((f) => {
+            centroForm[f.key] = this.docSettings.globalFields[this.normalizePlaceholderKey(f.key)] || '';
+          });
+          this.centroForm = centroForm;
+
+          const otros = {};
+          Object.keys(this.docSettings.globalFields).forEach((k) => {
+            if (!centroKeys.includes(k)) otros[k] = this.docSettings.globalFields[k];
+          });
+          this.docSettingsGlobalText = this.formatGlobalFieldsForEditor(otros);
         },
         downloadTextFile(filename, content) {
           const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
@@ -748,8 +996,8 @@
           document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
         },
         downloadStudentsTemplateCsv() {
-          const header = ['Nombre_Alumno','Apellidos_Alumno','DNI_Alumno','Email_Alumno','Telefono_Alumno','Curso_Alumno','Grupo_Alumno','Familia_Profesional','EmpresaId','Estado_FFE','Fecha_Inicio_FFE','Fecha_Fin_FFE','Horas_Previstas_FFE','Tutor_Centro','Observaciones_Alumno'];
-          const example = ['Ana','Lopez','12345678A','ana@ejemplo.com','600000000','2 SMR','A','Informatica','','pendiente','2026-09-15','2027-03-20','400','Marta Perez','Sin observaciones'];
+          const header = ['Nombre_Alumno','Apellidos_Alumno','DNI_Alumno','Email_Alumno','Telefono_Alumno','Curso_Alumno','Grupo_Alumno','Familia_Profesional','EmpresaId','Estado_FFE','Fecha_Inicio_FFE','Fecha_Fin_FFE','Horas_Previstas_FFE','TutorCentroId','Observaciones_Alumno'];
+          const example = ['Ana','Lopez','12345678A','ana@ejemplo.com','600000000','2 SMR','A','Informatica','','pendiente','2026-09-15','2027-03-20','400','','Sin observaciones'];
           this.downloadTextFile('plantilla_alumnado_ffe.csv', `${header.join(',')}\n${example.join(',')}\n`);
         },
         downloadCompaniesTemplateCsv() {
@@ -808,7 +1056,7 @@
             Fecha_Inicio_FFE: this.pickCsv(row, ['Fecha_Inicio_FFE', 'fecha_inicio']),
             Fecha_Fin_FFE: this.pickCsv(row, ['Fecha_Fin_FFE', 'fecha_fin']),
             Horas_Previstas_FFE: this.parseCsvNumber(this.pickCsv(row, ['Horas_Previstas_FFE', 'horas_previstas'], '0')),
-            Tutor_Centro: this.pickCsv(row, ['Tutor_Centro', 'tutor_centro']),
+            TutorCentroId: this.pickCsv(row, ['TutorCentroId', 'tutor_centro_id']),
             Observaciones_Alumno: this.pickCsv(row, ['Observaciones_Alumno', 'observaciones'])
           };
         },
@@ -1064,6 +1312,11 @@
               this.students = Array.isArray(data.students) ? data.students : [];
               this.companies = Array.isArray(data.companies) ? data.companies : [];
               this.documents = Array.isArray(data.documents) ? data.documents : [];
+              this.tutoresCentro = Array.isArray(data.tutoresCentro) ? data.tutoresCentro : [];
+              this.cursosAcademicos = Array.isArray(data.cursosAcademicos) ? data.cursosAcademicos : [];
+              this.activeCursoAcademicoId = data.activeCursoAcademicoId || '';
+              if (!this.selectedCursoAcademicoId && this.activeCursoAcademicoId) this.selectedCursoAcademicoId = this.activeCursoAcademicoId;
+              this.estudios = Array.isArray(data.estudios) ? data.estudios : [];
               this.accessControl = data.accessControl || { adminEmails: [], allowedEmails: [] };
               this.applyDocSettingsFromSnapshot(data.docSettings || {});
               this.isAdmin = !!(data.user && data.user.isAdmin);
@@ -1089,20 +1342,152 @@
           const t = this.tutoresDeEmpresa(empresaId).find((x) => x.id === tutorId);
           return t ? t.Nombre_Apellidos_Tutor : '';
         },
+        tutorCentroNameById(tutorId) {
+          if (!tutorId) return '';
+          const t = this.tutoresCentro.find((x) => x.id === tutorId);
+          return t ? `${t.Nombre_Tutor_Centro} ${t.Apellidos_Tutor_Centro}`.trim() : '';
+        },
         documentCountForStudent(id) { return this.documents.filter((d) => d.StudentId === id).length; },
         documentCountForCompany(id) { return this.documents.filter((d) => d.CompanyId === id).length; },
         viewDocumentsForStudent(s) { this.documentStudentFilter = s.id; this.documentCompanyFilter = ''; this.activeTab = 'documents'; },
         viewDocumentsForCompany(c) { this.documentCompanyFilter = c.id; this.documentStudentFilter = ''; this.activeTab = 'documents'; },
+
+        // ---------- TUTORES DEL CENTRO (Admin) ----------
+        startNewTutorCentro() {
+          this.tutorCentroForm = { id: '', Nombre_Tutor_Centro: '', Apellidos_Tutor_Centro: '', DNI_Tutor_Centro: '', Email_Tutor_Centro: '' };
+          this.tutorCentroFormOpen = true;
+        },
+        editTutorCentro(t) {
+          this.tutorCentroForm = JSON.parse(JSON.stringify(t || {}));
+          this.tutorCentroFormOpen = true;
+        },
+        async saveTutorCentro() {
+          if (!this.tutorCentroForm.Nombre_Tutor_Centro || !this.tutorCentroForm.Apellidos_Tutor_Centro) {
+            this.showToast('error', 'Nombre y apellidos son obligatorios.'); return;
+          }
+          await this.runBusy('Guardando tutor/a del centro...', async () => {
+            try {
+              const data = await this.postToServer('upsert_tutor_centro', this.tutorCentroForm);
+              this.upsertLocal(this.tutoresCentro, data.tutorCentro, 'id');
+              this.tutorCentroFormOpen = false;
+              this.showToast('success', 'Tutor/a del centro guardado correctamente.');
+            } catch (err) {
+              this.lastSyncError = `Fallo guardando tutor/a del centro: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+        async removeTutorCentro(t) {
+          if (!confirm(`Eliminar a ${t.Nombre_Tutor_Centro} ${t.Apellidos_Tutor_Centro}?`)) return;
+          await this.runBusy('Eliminando tutor/a del centro...', async () => {
+            try {
+              await this.postToServer('delete_tutor_centro', { id: t.id });
+              this.tutoresCentro = this.tutoresCentro.filter((x) => x.id !== t.id);
+              this.students = this.students.map((s) => (s.TutorCentroId === t.id ? { ...s, TutorCentroId: '' } : s));
+              this.showToast('success', 'Tutor/a del centro eliminado.');
+            } catch (err) {
+              this.lastSyncError = `Fallo eliminando tutor/a del centro: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+
+        // ---------- CURSOS ACADEMICOS (Admin) ----------
+        cursoNombreById(id) { const c = this.cursosAcademicos.find((x) => x.id === id); return c ? c.Nombre_Curso : ''; },
+        startNewCursoAcademico() {
+          this.cursoAcademicoForm = { id: '', Nombre_Curso: '', cloneFromId: '', marcarActivo: false };
+          this.cursoAcademicoFormOpen = true;
+        },
+        editCursoAcademico(c) {
+          this.cursoAcademicoForm = { id: c.id, Nombre_Curso: c.Nombre_Curso, cloneFromId: '', marcarActivo: false };
+          this.cursoAcademicoFormOpen = true;
+        },
+        async saveCursoAcademico() {
+          if (!this.cursoAcademicoForm.Nombre_Curso) { this.showToast('error', 'Indica un nombre para el curso academico.'); return; }
+          await this.runBusy('Guardando curso academico...', async () => {
+            try {
+              const data = await this.postToServer('upsert_curso_academico', this.cursoAcademicoForm);
+              this.cursosAcademicos = Array.isArray(data.cursos) ? data.cursos : this.cursosAcademicos;
+              this.activeCursoAcademicoId = data.activeCursoAcademicoId || this.activeCursoAcademicoId;
+              this.cursoAcademicoFormOpen = false;
+              this.showToast('success', 'Curso academico guardado. Si has copiado datos de otro curso, recarga para verlos.');
+              await this.refreshSnapshot();
+            } catch (err) {
+              this.lastSyncError = `Fallo guardando curso academico: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+        async marcarCursoActivo(c) {
+          await this.runBusy('Actualizando curso predeterminado...', async () => {
+            try {
+              const data = await this.postToServer('set_curso_academico_activo', { id: c.id });
+              this.activeCursoAcademicoId = data.activeCursoAcademicoId || '';
+              this.showToast('success', `"${c.Nombre_Curso}" marcado como curso predeterminado.`);
+            } catch (err) {
+              this.lastSyncError = `Fallo marcando curso predeterminado: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+
+        // ---------- CICLOS FORMATIVOS / ESTUDIOS (Admin) ----------
+        startNewEstudio() {
+          this.estudioForm = { id: '', Codigo_Estudio: '', Nombre_Estudio: '', Grado_Estudio: '' };
+          this.estudioFormOpen = true;
+        },
+        editEstudio(e) {
+          this.estudioForm = JSON.parse(JSON.stringify(e || {}));
+          this.estudioFormOpen = true;
+        },
+        async saveEstudio() {
+          if (!this.estudioForm.Codigo_Estudio || !this.estudioForm.Nombre_Estudio) {
+            this.showToast('error', 'Codigo y nombre del ciclo son obligatorios.'); return;
+          }
+          await this.runBusy('Guardando ciclo formativo...', async () => {
+            try {
+              const data = await this.postToServer('upsert_estudio', this.estudioForm);
+              this.upsertLocal(this.estudios, data.estudio, 'id');
+              this.estudioFormOpen = false;
+              this.showToast('success', 'Ciclo formativo guardado correctamente.');
+            } catch (err) {
+              this.lastSyncError = `Fallo guardando ciclo formativo: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+        async removeEstudio(e) {
+          if (!confirm(`Eliminar el ciclo "${e.Codigo_Estudio} - ${e.Nombre_Estudio}"?`)) return;
+          await this.runBusy('Eliminando ciclo formativo...', async () => {
+            try {
+              await this.postToServer('delete_estudio', { id: e.id });
+              this.estudios = this.estudios.filter((x) => x.id !== e.id);
+              this.students = this.students.map((s) => (s.EstudioId === e.id ? { ...s, EstudioId: '' } : s));
+              this.showToast('success', 'Ciclo formativo eliminado.');
+            } catch (err) {
+              this.lastSyncError = `Fallo eliminando ciclo formativo: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
 
         // ---------- ALUMNOS ----------
         startNewStudent(openForm = true) {
           this.studentFormOpen = !!openForm;
           this.studentForm = {
             id: '', Nombre_Alumno: '', Apellidos_Alumno: '', DNI_Alumno: '', Email_Alumno: '', Telefono_Alumno: '',
-            Curso_Alumno: '', Grupo_Alumno: '', Familia_Profesional: '', EmpresaId: '', TutorEmpresaId: '',
-            Tutor_Centro: '', Estado_FFE: 'pendiente', Fecha_Inicio_FFE: '', Fecha_Fin_FFE: '',
+            Curso_Alumno: '', Grupo_Alumno: '', EstudioId: '', Familia_Profesional: '', EmpresaId: '', TutorEmpresaId: '',
+            TutorCentroId: '', CursoAcademicoId: this.effectiveCursoAcademicoId, Estado_FFE: 'pendiente', Fecha_Inicio_FFE: '', Fecha_Fin_FFE: '',
             Horas_Previstas_FFE: 0, Horas_Realizadas_FFE: 0, Observaciones_Alumno: ''
           };
+        },
+        // Recalcula Grupo_Alumno = Curso_Alumno + '-' + Codigo_Estudio cada vez que cambia
+        // el curso o el ciclo formativo seleccionado; se puede seguir editando a mano despues.
+        recalcularGrupoAlumno() {
+          const estudio = this.estudios.find((e) => e.id === this.studentForm.EstudioId);
+          const curso = (this.studentForm.Curso_Alumno || '').trim();
+          if (estudio && curso) this.studentForm.Grupo_Alumno = `${curso}-${estudio.Codigo_Estudio}`;
+          else if (estudio) this.studentForm.Grupo_Alumno = estudio.Codigo_Estudio;
         },
         editStudent(s) { this.studentForm = { ...this.studentForm, ...JSON.parse(JSON.stringify(s || {})) }; this.studentFormOpen = true; this.activeTab = 'students'; },
         cancelStudentForm() { this.startNewStudent(false); },
@@ -1142,7 +1527,7 @@
           this.companyForm = {
             id: '', Nombre_Empresa: '', NIF_Empresa: '', Actividad_Empresa: '', Base_Normativa_Empresa: '',
             Calle_Empresa: '', Localidad_Empresa: '', Provincia_Empresa: '', Pais_Empresa: '', CP_Empresa: '',
-            Nombre_Representante_Empresa: '', Cargo_Representante_Empresa: '', TutoresEmpresa: [], Observaciones_Empresa: ''
+            Nombre_Representante_Empresa: '', Cargo_Representante_Empresa: '', TutoresEmpresa: [], Observaciones_Empresa: '', CursoAcademicoId: this.effectiveCursoAcademicoId
           };
         },
         editCompany(c) {
@@ -1268,9 +1653,12 @@
           if (!this.isAdmin) return;
           await this.runBusy('Guardando configuracion documental...', async () => {
             try {
+              const centroFields = {};
+              this.centroFieldDefs.forEach((f) => { centroFields[this.normalizePlaceholderKey(f.key)] = this.centroForm[f.key] || ''; });
+              const otros = this.parseGlobalFieldsFromEditor(this.docSettingsGlobalText);
               const payload = {
                 outputFolderId: this.docSettingsForm.outputFolderId,
-                globalFields: this.parseGlobalFieldsFromEditor(this.docSettingsGlobalText),
+                globalFields: { ...otros, ...centroFields },
                 templates: this.docSettings.templates
               };
               const data = await this.postToServer('set_doc_settings', payload);
