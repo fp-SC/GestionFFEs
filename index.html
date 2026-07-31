@@ -831,6 +831,7 @@
                 <option v-for="c in cursosAcademicos" :key="c.id" :value="c.id">{{ c.Nombre_Curso }}</option>
               </select>
             </div>
+            <div><span class="field-label">Curso escolar (ej. 2026-2027)</span><input v-model="calendarioAdminForm.cursoEscolar" placeholder="2026-2027" class="field" /></div>
             <div><span class="field-label">Inicio del curso</span><input type="date" v-model="calendarioAdminForm.startDate" class="field" /></div>
             <div><span class="field-label">Fin del curso</span><input type="date" v-model="calendarioAdminForm.endDate" class="field" /></div>
           </div>
@@ -920,7 +921,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzcqBm_zsfjpK__VMrMQe_bzeTHl641gqwsegAjVM0tfnW-9ryocemW_ic_2KGipA7J/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbxMr25B6xTtp7Xew-JtrmQaGYL32biP5l9-F21yq2Ls9uEgQf24vYK4d7Oy9QtGsesq/exec';
 
     const { createApp } = Vue;
 
@@ -981,7 +982,7 @@
 
           calendarios: {},
           calendarioAdminCursoId: '',
-          calendarioAdminForm: { startDate: '', endDate: '', festivos: [] },
+          calendarioAdminForm: { startDate: '', endDate: '', cursoEscolar: '', festivos: [] },
 
           selectedStudentIds: [],
           bulkStudentField: '',
@@ -1313,6 +1314,7 @@
             Familia_Profesional: familia,
             Estado_FFE: this.pickCsv(row, ['Estado_FFE', 'estado'], 'pendiente'),
             TutorCentroId: this.pickCsv(row, ['TutorCentroId', 'tutor_centro_id']),
+            CursoAcademicoId: this.pickCsv(row, ['CursoAcademicoId', 'curso_academico_id']) || this.effectiveCursoAcademicoId,
             Observaciones_Alumno: this.pickCsv(row, ['Observaciones_Alumno', 'observaciones'])
           };
         },
@@ -1380,25 +1382,35 @@
           await this.runBusy('Importando alumnado...', async () => {
             let imported = 0; let omitidos = 0;
             const errorCounts = {};
+            const fallidosNombres = [];
             try {
               const objects = await this.readStudentRecordsFromFile(file);
               if (objects.length === 0) throw new Error('ARCHIVO_SIN_FILAS_DE_DATOS');
               for (let i = 0; i < objects.length; i += 1) {
                 const payload = this.buildStudentPayloadFromRecord(objects[i]);
                 if (!payload.Nombre_Alumno || !payload.Apellidos_Alumno) { omitidos += 1; continue; }
-                try {
-                  const data = await this.postToServer('upsert_student', payload);
-                  this.upsertLocal(this.students, data.student, 'id');
-                  imported += 1;
-                } catch (err) {
-                  const code = (err && err.message) ? err.message : 'ERROR_DESCONOCIDO';
-                  errorCounts[code] = (errorCounts[code] || 0) + 1;
+                let guardado = false; let ultimoError = ''; let intentos = 0;
+                while (!guardado && intentos < 2) {
+                  intentos += 1;
+                  try {
+                    const data = await this.postToServer('upsert_student', payload);
+                    this.upsertLocal(this.students, data.student, 'id');
+                    imported += 1;
+                    guardado = true;
+                  } catch (err) {
+                    ultimoError = (err && err.message) ? err.message : 'ERROR_DESCONOCIDO';
+                  }
+                }
+                if (!guardado) {
+                  errorCounts[ultimoError] = (errorCounts[ultimoError] || 0) + 1;
+                  fallidosNombres.push(`${payload.Nombre_Alumno} ${payload.Apellidos_Alumno}`.trim());
                 }
               }
               const failed = Object.values(errorCounts).reduce((a, b) => a + b, 0);
               const motivos = Object.entries(errorCounts).map(([code, n]) => `${code} (${n})`).join(', ');
+              const nombresTxt = fallidosNombres.length ? `\nAlumno/s con error: ${fallidosNombres.join(', ')}` : '';
               const resumen = `Importacion completada. Correctos: ${imported}. Fallidos: ${failed}. Omitidos sin nombre/apellidos: ${omitidos}.`;
-              const detalle = motivos ? `\nMotivo(s): ${motivos}` : '';
+              const detalle = motivos ? `\nMotivo(s): ${motivos}${nombresTxt}` : '';
               this.showToast(failed > 0 ? 'error' : 'success', resumen + detalle);
               this.lastSyncError = failed > 0 ? `${resumen} ${detalle}`.trim() : '';
             } catch (err) {
@@ -1735,15 +1747,22 @@
           this.calendarioAdminForm = {
             startDate: c.startDate || '',
             endDate: c.endDate || '',
+            cursoEscolar: c.Curso_Escolar || '',
             festivos: Array.isArray(c.festivos) ? c.festivos.slice() : []
           };
+        },
+        formatLocalDate(date) {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
         },
         getDaysForMonth(year, month) {
           const days = [];
           const daysInMonth = new Date(year, month + 1, 0).getDate();
           for (let d = 1; d <= daysInMonth; d += 1) {
             const date = new Date(year, month, d);
-            days.push({ dayNum: d, dateStr: date.toISOString().slice(0, 10) });
+            days.push({ dayNum: d, dateStr: this.formatLocalDate(date) });
           }
           return days;
         },
@@ -1850,7 +1869,7 @@
           let total = 0; let safety = 0;
           while (cursor <= fin && safety < 3000) {
             const key = idxToKey[cursor.getDay()];
-            const iso = cursor.toISOString().slice(0, 10);
+            const iso = this.formatLocalDate(cursor);
             if (diasSet.has(key) && !festivos.has(iso)) {
               const h = periodo.Horario_Periodo[key];
               total += h ? this.horasEntre(h.inicio, h.fin) : 0;
