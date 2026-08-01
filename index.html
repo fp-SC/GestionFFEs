@@ -826,7 +826,7 @@
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 text-sm">
             <div>
               <span class="field-label">Curso academico a configurar</span>
-              <select v-model="calendarioAdminCursoId" @change="loadCalendarioAdminForm" class="field">
+              <select v-model="calendarioAdminCursoId" @change="loadCalendarioAdminForm($event.target.value)" class="field">
                 <option value="">Sin curso asignado (general)</option>
                 <option v-for="c in cursosAcademicos" :key="c.id" :value="c.id">{{ c.Nombre_Curso }}</option>
               </select>
@@ -842,7 +842,10 @@
               · <span class="font-bold">{{ calendarioAdminForm.festivos.length }}</span> festivo/s marcado/s.
               Haz clic en un dia para marcarlo/desmarcarlo.
             </p>
-            <button v-if="calendarioAdminForm.festivos.length" @click="calendarioAdminForm.festivos = []" class="text-[10px] px-2 py-1 rounded bg-slate-800 border border-slate-700">Quitar todos los festivos</button>
+            <div class="flex gap-2">
+              <button @click="marcarFinesDeSemanaComoFestivos" class="text-[10px] px-2 py-1 rounded bg-slate-800 border border-slate-700">Marcar sabados y domingos como festivos</button>
+              <button v-if="calendarioAdminForm.festivos.length" @click="calendarioAdminForm.festivos = []" class="text-[10px] px-2 py-1 rounded bg-slate-800 border border-slate-700">Quitar todos los festivos</button>
+            </div>
           </div>
           <div v-if="allCalendarMonths.length" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 p-2 bg-[#040914] rounded-xl border border-slate-800">
             <div v-for="m in allCalendarMonths" :key="m.year + '-' + m.month" class="bg-[#070e1e] p-3 rounded-lg border border-slate-800/60">
@@ -1742,15 +1745,49 @@
         },
 
         // ---------- CALENDARIO LECTIVO (Admin) ----------
-        loadCalendarioAdminForm() {
-          const c = this.calendarios[this.calendarioAdminCursoId] || {};
-          const sugerido = this.sugerirFechasCursoEscolar(this.calendarioAdminCursoId);
+        loadCalendarioAdminForm(cursoIdExplicito) {
+          if (cursoIdExplicito !== undefined) this.calendarioAdminCursoId = cursoIdExplicito;
+          const cursoId = this.calendarioAdminCursoId;
+          const c = this.calendarios[cursoId] || {};
+          const esCalendarioNuevo = !Array.isArray(c.festivos);
+          const sugerido = this.sugerirFechasCursoEscolar(cursoId);
+
+          const startDate = c.startDate || sugerido.startDate;
+          const endDate = c.endDate || sugerido.endDate;
+
           this.calendarioAdminForm = {
-            startDate: c.startDate || sugerido.startDate,
-            endDate: c.endDate || sugerido.endDate,
+            startDate,
+            endDate,
             cursoEscolar: c.Curso_Escolar || sugerido.cursoEscolar,
-            festivos: Array.isArray(c.festivos) ? c.festivos.slice() : []
+            // Los calendarios nunca guardados empiezan con los sabados y domingos
+            // del rango ya marcados como no lectivos; los que ya existian se
+            // cargan tal cual estaban.
+            festivos: esCalendarioNuevo ? this.generarFinesDeSemana(startDate, endDate) : c.festivos.slice()
           };
+        },
+        // Genera todas las fechas de sabado/domingo (formato AAAA-MM-DD) entre dos fechas, ambas incluidas.
+        generarFinesDeSemana(startDate, endDate) {
+          const inicio = new Date(startDate + 'T00:00:00');
+          const fin = new Date(endDate + 'T00:00:00');
+          if (isNaN(inicio.getTime()) || isNaN(fin.getTime()) || inicio > fin) return [];
+          const finde = [];
+          let cursor = new Date(inicio);
+          let safety = 0;
+          while (cursor <= fin && safety < 3000) {
+            const dow = cursor.getDay(); // 0 = domingo, 6 = sabado
+            if (dow === 0 || dow === 6) finde.push(this.formatLocalDate(cursor));
+            cursor.setDate(cursor.getDate() + 1);
+            safety += 1;
+          }
+          return finde;
+        },
+        // Aplica fines de semana no lectivos tambien a un calendario ya existente
+        // (por si se creo antes de tener esto por defecto, o si se amplio el rango de fechas).
+        marcarFinesDeSemanaComoFestivos() {
+          const finde = this.generarFinesDeSemana(this.calendarioAdminForm.startDate, this.calendarioAdminForm.endDate);
+          const actuales = new Set(this.calendarioAdminForm.festivos);
+          finde.forEach((f) => actuales.add(f));
+          this.calendarioAdminForm.festivos = Array.from(actuales).sort();
         },
         // Si el curso academico elegido todavia no tiene calendario guardado, propone
         // fechas por defecto (1 sept - 30 jun) para que la cuadricula aparezca al
