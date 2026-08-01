@@ -821,7 +821,7 @@
 
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <h3 class="text-sm font-bold text-slate-200 mb-2">Calendario lectivo</h3>
-          <p class="text-xs text-slate-400 mb-3">Un calendario por curso academico (festivos y dias no lectivos). Se usara para calcular automaticamente las horas totales de FFE.</p>
+          <p class="text-xs text-slate-400 mb-3">Un calendario por curso academico (festivos y dias no lectivos). Se usara para calcular automaticamente las horas totales de FFE. Al guardar cambios, se recalculan automaticamente todos los periodos de FFE de los alumnos de este curso.</p>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 text-sm">
             <div>
@@ -836,7 +836,14 @@
             <div><span class="field-label">Fin del curso</span><input type="date" v-model="calendarioAdminForm.endDate" class="field" /></div>
           </div>
 
-          <p class="text-xs text-slate-400 mb-2">Haz clic en un dia para marcarlo/desmarcarlo como festivo o no lectivo.</p>
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <p class="text-xs text-slate-300">
+              Editando: <span class="font-bold text-sky-300">{{ calendarioAdminCursoId ? cursoNombreById(calendarioAdminCursoId) : 'Sin curso asignado (general)' }}</span>
+              · <span class="font-bold">{{ calendarioAdminForm.festivos.length }}</span> festivo/s marcado/s.
+              Haz clic en un dia para marcarlo/desmarcarlo.
+            </p>
+            <button v-if="calendarioAdminForm.festivos.length" @click="calendarioAdminForm.festivos = []" class="text-[10px] px-2 py-1 rounded bg-slate-800 border border-slate-700">Quitar todos los festivos</button>
+          </div>
           <div v-if="allCalendarMonths.length" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 p-2 bg-[#040914] rounded-xl border border-slate-800">
             <div v-for="m in allCalendarMonths" :key="m.year + '-' + m.month" class="bg-[#070e1e] p-3 rounded-lg border border-slate-800/60">
               <h4 class="text-xs font-black uppercase tracking-wider mb-2 text-center bg-indigo-500/10 py-1 rounded text-indigo-200">{{ m.name }} {{ m.year }}</h4>
@@ -921,7 +928,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbxMr25B6xTtp7Xew-JtrmQaGYL32biP5l9-F21yq2Ls9uEgQf24vYK4d7Oy9QtGsesq/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbxeiy0sSqLnVcwtr5VHDFWoarCg0z2voMYQ6yPANqLj32yXwnvGVxuNMbLbz8vF8fCj/exec';
 
     const { createApp } = Vue;
 
@@ -1380,39 +1387,32 @@
           if (!file) return;
           this.lastSyncError = '';
           await this.runBusy('Importando alumnado...', async () => {
-            let imported = 0; let omitidos = 0;
-            const errorCounts = {};
-            const fallidosNombres = [];
+            let omitidos = 0;
             try {
               const objects = await this.readStudentRecordsFromFile(file);
               if (objects.length === 0) throw new Error('ARCHIVO_SIN_FILAS_DE_DATOS');
-              for (let i = 0; i < objects.length; i += 1) {
-                const payload = this.buildStudentPayloadFromRecord(objects[i]);
-                if (!payload.Nombre_Alumno || !payload.Apellidos_Alumno) { omitidos += 1; continue; }
-                let guardado = false; let ultimoError = ''; let intentos = 0;
-                while (!guardado && intentos < 2) {
-                  intentos += 1;
-                  try {
-                    const data = await this.postToServer('upsert_student', payload);
-                    this.upsertLocal(this.students, data.student, 'id');
-                    imported += 1;
-                    guardado = true;
-                  } catch (err) {
-                    ultimoError = (err && err.message) ? err.message : 'ERROR_DESCONOCIDO';
-                  }
-                }
-                if (!guardado) {
-                  errorCounts[ultimoError] = (errorCounts[ultimoError] || 0) + 1;
-                  fallidosNombres.push(`${payload.Nombre_Alumno} ${payload.Apellidos_Alumno}`.trim());
-                }
+
+              const items = [];
+              objects.forEach((row) => {
+                const payload = this.buildStudentPayloadFromRecord(row);
+                if (!payload.Nombre_Alumno || !payload.Apellidos_Alumno) { omitidos += 1; return; }
+                items.push(payload);
+              });
+
+              if (items.length === 0) {
+                this.showToast('error', `No se importo ningun alumno. Omitidos sin nombre/apellidos: ${omitidos}.`);
+                return;
               }
-              const failed = Object.values(errorCounts).reduce((a, b) => a + b, 0);
-              const motivos = Object.entries(errorCounts).map(([code, n]) => `${code} (${n})`).join(', ');
-              const nombresTxt = fallidosNombres.length ? `\nAlumno/s con error: ${fallidosNombres.join(', ')}` : '';
-              const resumen = `Importacion completada. Correctos: ${imported}. Fallidos: ${failed}. Omitidos sin nombre/apellidos: ${omitidos}.`;
-              const detalle = motivos ? `\nMotivo(s): ${motivos}${nombresTxt}` : '';
-              this.showToast(failed > 0 ? 'error' : 'success', resumen + detalle);
-              this.lastSyncError = failed > 0 ? `${resumen} ${detalle}`.trim() : '';
+
+              const data = await this.postToServer('bulk_import_students', { items });
+              if (Array.isArray(data.students)) this.students = data.students;
+
+              const creados = Array.isArray(data.creados) ? data.creados.length : 0;
+              const errores = Array.isArray(data.errores) ? data.errores : [];
+              const nombresTxt = errores.length ? `\nAlumno/s con error: ${errores.map((e) => e.nombre || `fila ${e.index + 1}`).join(', ')}` : '';
+              const resumen = `Importacion completada. Correctos: ${creados}. Fallidos: ${errores.length}. Omitidos sin nombre/apellidos: ${omitidos}.`;
+              this.showToast(errores.length > 0 ? 'error' : 'success', resumen + nombresTxt);
+              this.lastSyncError = errores.length > 0 ? `${resumen}${nombresTxt}` : '';
             } catch (err) {
               const msg = `Error en importacion de alumnado: ${err.message || 'ARCHIVO_INVALIDO'}`;
               this.lastSyncError = msg;
@@ -1781,12 +1781,35 @@
           if (!this.calendarioAdminForm.startDate || !this.calendarioAdminForm.endDate) {
             this.showToast('error', 'Indica fecha de inicio y fin del curso.'); return;
           }
-          await this.runBusy('Guardando calendario lectivo...', async () => {
+          await this.runBusy('Guardando calendario y recalculando periodos afectados...', async () => {
             try {
-              const payload = { cursoAcademicoId: this.calendarioAdminCursoId, ...this.calendarioAdminForm };
+              const cursoKey = this.calendarioAdminCursoId || '';
+              const payload = { cursoAcademicoId: cursoKey, ...this.calendarioAdminForm };
               const data = await this.postToServer('set_calendario', payload);
               this.calendarios = data.calendarios || this.calendarios;
-              this.showToast('success', 'Calendario lectivo guardado correctamente.');
+
+              // Recalcula horas/semana y horas totales de todos los periodos de los
+              // alumnos de este curso academico, ya que el calendario (festivos,
+              // fechas) acaba de cambiar.
+              const updates = [];
+              this.students.forEach((s) => {
+                if ((s.CursoAcademicoId || '') !== cursoKey) return;
+                if (!Array.isArray(s.Periodos) || !s.Periodos.length) return;
+                const nuevosPeriodos = s.Periodos.map((p) => ({
+                  ...p,
+                  Horas_Semana_Periodo: this.calcularHorasSemanaPeriodo(p),
+                  Horas_Totales_Periodo: this.calcularHorasTotalesPeriodoPara(p, cursoKey)
+                }));
+                updates.push({ studentId: s.id, Periodos: nuevosPeriodos });
+              });
+
+              if (updates.length) {
+                const recalcData = await this.postToServer('bulk_recalc_periodos', { updates });
+                if (Array.isArray(recalcData.students)) this.students = recalcData.students;
+                this.showToast('success', `Calendario guardado. Recalculados ${recalcData.updated} alumno/s con periodos en este curso.`);
+              } else {
+                this.showToast('success', 'Calendario lectivo guardado correctamente.');
+              }
             } catch (err) {
               this.lastSyncError = `Fallo guardando el calendario: ${err.message || 'ERROR'}`;
               this.showToast('error', this.lastSyncError);
@@ -1854,12 +1877,11 @@
             return acc + (h ? this.horasEntre(h.inicio, h.fin) : 0);
           }, 0);
         },
-        calcularHorasTotalesPeriodo(periodo) {
+        calcularHorasTotalesPeriodoPara(periodo, cursoAcademicoId) {
           if (!periodo.Fecha_Inicio_Periodo || !periodo.Fecha_Fin_Periodo || !periodo.Dias_Periodo.length) return 0;
-          const dayIdx = { D: 0, L: 1, M: 2, X: 3, J: 4, V: 5, S: 6 }; // getDay(): 0=domingo
-          const idxToKey = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+          const idxToKey = ['D', 'L', 'M', 'X', 'J', 'V', 'S']; // getDay(): 0=domingo
           const diasSet = new Set(periodo.Dias_Periodo);
-          const cal = this.calendarios[this.studentForm.CursoAcademicoId || ''] || {};
+          const cal = this.calendarios[cursoAcademicoId || ''] || {};
           const festivos = new Set(Array.isArray(cal.festivos) ? cal.festivos : []);
 
           let cursor = new Date(periodo.Fecha_Inicio_Periodo + 'T00:00:00');
@@ -1878,6 +1900,9 @@
             safety += 1;
           }
           return Math.round(total * 100) / 100;
+        },
+        calcularHorasTotalesPeriodo(periodo) {
+          return this.calcularHorasTotalesPeriodoPara(periodo, this.studentForm.CursoAcademicoId);
         },
         recalcularPeriodo(periodo) {
           periodo.Horas_Semana_Periodo = this.calcularHorasSemanaPeriodo(periodo);
