@@ -1744,11 +1744,28 @@
         // ---------- CALENDARIO LECTIVO (Admin) ----------
         loadCalendarioAdminForm() {
           const c = this.calendarios[this.calendarioAdminCursoId] || {};
+          const sugerido = this.sugerirFechasCursoEscolar(this.calendarioAdminCursoId);
           this.calendarioAdminForm = {
-            startDate: c.startDate || '',
-            endDate: c.endDate || '',
-            cursoEscolar: c.Curso_Escolar || '',
+            startDate: c.startDate || sugerido.startDate,
+            endDate: c.endDate || sugerido.endDate,
+            cursoEscolar: c.Curso_Escolar || sugerido.cursoEscolar,
             festivos: Array.isArray(c.festivos) ? c.festivos.slice() : []
+          };
+        },
+        // Si el curso academico elegido todavia no tiene calendario guardado, propone
+        // fechas por defecto (1 sept - 30 jun) para que la cuadricula aparezca al
+        // instante en vez de quedarse vacia esperando que el usuario escriba fechas.
+        sugerirFechasCursoEscolar(cursoAcademicoId) {
+          const curso = this.cursosAcademicos.find((c) => c.id === cursoAcademicoId);
+          const nombre = curso ? curso.Nombre_Curso : '';
+          const match = /(\d{4})\s*-\s*(\d{4})/.exec(nombre || '');
+          const hoy = new Date();
+          const anioInicio = match ? Number(match[1]) : (hoy.getMonth() >= 7 ? hoy.getFullYear() : hoy.getFullYear() - 1);
+          const anioFin = match ? Number(match[2]) : anioInicio + 1;
+          return {
+            startDate: `${anioInicio}-09-01`,
+            endDate: `${anioFin}-06-30`,
+            cursoEscolar: match ? `${anioInicio}-${anioFin}` : ''
           };
         },
         formatLocalDate(date) {
