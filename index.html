@@ -14,7 +14,7 @@
     [v-cloak] { display: none; }
     body {
       font-family: Inter, system-ui, -apple-system, sans-serif;
-      background: #03060f;
+      background: linear-gradient(180deg, #06101d 0%, #0a1627 100%);
     }
     .spinner { animation: spin 1s linear infinite; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
@@ -22,12 +22,12 @@
     .bg-glow-red { filter: blur(140px); background: radial-gradient(circle, rgba(223,26,26,.15) 0%, rgba(0,0,0,0) 70%); }
     .bg-glow-gold { filter: blur(140px); background: radial-gradient(circle, rgba(234,179,8,.08) 0%, rgba(0,0,0,0) 70%); }
     .field {
-      width: 100%; border: 1px solid rgb(51 65 85); border-radius: .5rem;
-      background: #040914; color: rgb(226 232 240); padding: .5rem .75rem; outline: none;
+      width: 100%; border: 1px solid rgb(71 85 105); border-radius: .5rem;
+      background: #0b1730; color: rgb(241 245 249); padding: .5rem .75rem; outline: none;
     }
-    .field:focus { border-color: rgb(59 130 246); box-shadow: 0 0 0 2px rgba(59,130,246,.25); }
-    .field-label { display:block; font-size: 10px; font-weight: 700; color: rgb(148 163 184); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .03em; }
-    .doc-check { display:flex; align-items:center; gap:.35rem; background:#040914; border:1px solid rgb(51 65 85); border-radius:.5rem; padding:.5rem; color: rgb(203 213 225); }
+    .field:focus { border-color: rgb(96 165 250); box-shadow: 0 0 0 2px rgba(96,165,250,.28); }
+    .field-label { display:block; font-size: 10px; font-weight: 700; color: rgb(186 200 219); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .03em; }
+    .doc-check { display:flex; align-items:center; gap:.35rem; background:#0b1730; border:1px solid rgb(71 85 105); border-radius:.5rem; padding:.5rem; color: rgb(226 232 240); }
   </style>
 </head>
 <body class="text-slate-100 antialiased p-3 md:p-6 min-h-screen relative overflow-x-hidden">
@@ -377,13 +377,20 @@
               <div v-if="periodo.Dias_Periodo.length" class="mb-3">
                 <div class="flex items-center justify-between mb-1">
                   <span class="field-label">Horario por dia</span>
-                  <button @click="aplicarHorarioATodos(periodo)" class="text-[10px] px-2 py-1 rounded bg-slate-800 border border-slate-700">Copiar el primer horario a todos los dias</button>
+                  <button @click="aplicarHorarioATodos(periodo)" class="text-[10px] px-2 py-1 rounded bg-slate-800 border border-slate-700">Copiar las franjas del primer dia a todos</button>
                 </div>
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
                   <div v-for="d in periodo.Dias_Periodo" :key="d" class="bg-[#070e1e] border border-slate-800 rounded-lg p-2">
                     <p class="text-[10px] font-bold text-slate-400 mb-1">{{ diaLabel(d) }}</p>
-                    <input type="time" v-model="periodo.Horario_Periodo[d].inicio" class="field mb-1" />
-                    <input type="time" v-model="periodo.Horario_Periodo[d].fin" class="field" />
+                    <div class="space-y-2">
+                      <div v-for="(slot, slotIdx) in periodo.Horario_Periodo[d]" :key="`${d}_${slotIdx}`" class="bg-[#0d1b35] rounded-lg p-2 border border-slate-700">
+                        <span class="field-label">Franja {{ slotIdx + 1 }}</span>
+                        <input type="time" v-model="slot.inicio" class="field mb-1" />
+                        <input type="time" v-model="slot.fin" class="field" />
+                        <button @click="removeHorarioSlot(periodo, d, slotIdx)" class="mt-2 w-full px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300 text-[10px]">Quitar franja</button>
+                      </div>
+                      <button @click="addHorarioSlot(periodo, d)" class="w-full px-2 py-1 rounded bg-slate-800 border border-slate-700 text-[10px]">Anadir franja</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -553,11 +560,12 @@
               <button @click="addTutorEmpresa" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs">Anadir tutor/a</button>
             </div>
             <div class="space-y-2">
-              <div v-for="(t, idx) in companyForm.TutoresEmpresa" :key="t.id" class="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs bg-[#040914] p-2 rounded-lg border border-slate-800">
-                <input v-model="t.Nombre_Apellidos_Tutor" placeholder="Nombre y apellidos" class="field" />
-                <input v-model="t.DNI_Tutor" placeholder="DNI" class="field" />
-                <input v-model="t.Email_Tutor" placeholder="Email" class="field" />
-                <input v-model="t.Telefono_Tutor" placeholder="Telefono" class="field" />
+              <div v-for="(t, idx) in companyForm.TutoresEmpresa" :key="t.id" class="grid grid-cols-1 md:grid-cols-6 gap-2 text-xs bg-[#040914] p-2 rounded-lg border border-slate-800">
+                <div><span class="field-label">Nombre</span><input v-model="t.Nombre_Tutor" class="field" /></div>
+                <div><span class="field-label">Apellidos</span><input v-model="t.Apellidos_Tutor" class="field" /></div>
+                <div><span class="field-label">DNI</span><input v-model="t.DNI_Tutor" class="field" /></div>
+                <div><span class="field-label">Email</span><input v-model="t.Email_Tutor" class="field" /></div>
+                <div><span class="field-label">Telefono</span><input v-model="t.Telefono_Tutor" class="field" /></div>
                 <button @click="removeTutorEmpresa(idx)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Quitar</button>
               </div>
               <p v-if="(companyForm.TutoresEmpresa || []).length === 0" class="text-xs text-slate-400">Sin tutores de empresa todavia.</p>
@@ -626,31 +634,50 @@
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
             <div>
               <span class="field-label">Tipo de documento</span>
-              <select v-model="genDocForm.tipo" class="field">
+              <select v-model="genDocForm.tipo" @change="onGenDocTipoChange" class="field">
                 <option value="">Selecciona tipo</option>
                 <option v-for="tipo in documentTiposDisponibles" :key="tipo" :value="tipo">{{ tipo }}</option>
               </select>
             </div>
-            <div>
+            <div v-if="documentTemplateRequirements.requiresStudent">
               <span class="field-label">Alumno/a</span>
               <select v-model="genDocForm.studentId" @change="onGenDocStudentChange" class="field">
                 <option value="">Selecciona alumno/a</option>
                 <option v-for="s in students" :key="s.id" :value="s.id">{{ s.Nombre_Alumno }} {{ s.Apellidos_Alumno }}</option>
               </select>
             </div>
-            <div>
+            <div v-if="documentCompanySelectorVisible">
+              <span class="field-label">Empresa</span>
+              <select v-model="genDocForm.companyId" @change="onGenDocCompanyChange" class="field">
+                <option value="">Selecciona empresa</option>
+                <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
+              </select>
+            </div>
+            <div v-if="documentPeriodoSelectorVisible">
               <span class="field-label">Periodo de FFE</span>
               <select v-model="genDocForm.periodoId" @change="onGenDocPeriodoChange" class="field">
                 <option value="">Usar el ultimo periodo del alumno/a</option>
                 <option v-for="(p, idx) in periodosDelAlumno(genDocForm.studentId)" :key="p.id" :value="p.id">Periodo {{ idx + 1 }}: {{ companyNameById(p.EmpresaId) }} ({{ p.Fecha_Inicio_Periodo || '?' }} - {{ p.Fecha_Fin_Periodo || '?' }})</option>
               </select>
             </div>
-            <div>
+            <div v-if="documentTemplateRequirements.requiresTutorEmpresa">
               <span class="field-label">Tutor/a de empresa (opcional)</span>
               <select v-model="genDocForm.tutorEmpresaId" class="field">
                 <option value="">Usar el tutor del periodo seleccionado</option>
-                <option v-for="t in tutoresDeEmpresa(genDocEmpresaId)" :key="t.id" :value="t.id">{{ t.Nombre_Apellidos_Tutor }}</option>
+                <option v-for="t in tutoresDeEmpresa(genDocEmpresaId)" :key="t.id" :value="t.id">{{ tutorEmpresaDisplayName(t) }}</option>
               </select>
+            </div>
+          </div>
+          <div v-if="documentTemplateRequirements.runtimeFields.length" class="mt-3 p-3 rounded-lg bg-amber-950/30 border border-amber-800/40 text-xs text-amber-100">
+            <div class="font-bold mb-1">Campos manuales para este documento</div>
+            <div class="flex flex-wrap gap-2">
+              <span v-for="field in documentTemplateRequirements.runtimeFields" :key="field" class="px-2 py-1 rounded bg-amber-900/40 border border-amber-700">&lt;{{ field }}&gt;</span>
+            </div>
+          </div>
+          <div v-if="documentTemplateRequirements.unresolvedFields.length" class="mt-3 p-3 rounded-lg bg-red-950/30 border border-red-800/40 text-xs text-red-100">
+            <div class="font-bold mb-1">Campos no reconocidos por el sistema</div>
+            <div class="flex flex-wrap gap-2">
+              <span v-for="field in documentTemplateRequirements.unresolvedFields" :key="field" class="px-2 py-1 rounded bg-red-900/40 border border-red-700">&lt;{{ field }}&gt;</span>
             </div>
           </div>
           <div v-if="genDocForm.pidiendoIdConvenio" class="mt-3 p-3 rounded-lg bg-amber-950/30 border border-amber-800/40">
@@ -812,6 +839,7 @@
                   <th class="p-2 text-left">Codigo</th>
                   <th class="p-2 text-left">Nombre completo</th>
                   <th class="p-2 text-left">Grado</th>
+                  <th class="p-2 text-left">Regimen</th>
                   <th class="p-2 text-left">Acciones</th>
                 </tr>
               </thead>
@@ -820,6 +848,7 @@
                   <td class="p-2 font-semibold">{{ e.Codigo_Estudio }}</td>
                   <td class="p-2">{{ e.Nombre_Estudio }}</td>
                   <td class="p-2">{{ e.Grado_Estudio || '-' }}</td>
+                  <td class="p-2">{{ e.Regimen_Estudio || 'General' }}</td>
                   <td class="p-2">
                     <div class="flex gap-1">
                       <button @click="editEstudio(e)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
@@ -827,12 +856,12 @@
                     </div>
                   </td>
                 </tr>
-                <tr v-if="estudios.length === 0"><td colspan="4" class="p-3 text-center text-slate-400">Sin ciclos formativos todavia.</td></tr>
+                <tr v-if="estudios.length === 0"><td colspan="5" class="p-3 text-center text-slate-400">Sin ciclos formativos todavia.</td></tr>
               </tbody>
             </table>
           </div>
 
-          <div v-if="estudioFormOpen" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
+          <div v-if="estudioFormOpen" class="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
             <div><span class="field-label">Codigo (ej. SAN201)</span><input v-model="estudioForm.Codigo_Estudio" class="field" /></div>
             <div><span class="field-label">Nombre completo</span><input v-model="estudioForm.Nombre_Estudio" class="field" /></div>
             <div>
@@ -844,7 +873,14 @@
                 <option value="Superior">Superior</option>
               </select>
             </div>
-            <div class="md:col-span-3 flex gap-2">
+            <div>
+              <span class="field-label">Regimen</span>
+              <select v-model="estudioForm.Regimen_Estudio" class="field">
+                <option value="General">General</option>
+                <option value="Intensivo">Intensivo</option>
+              </select>
+            </div>
+            <div class="md:col-span-4 flex gap-2">
               <button @click="saveEstudio" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar ciclo</button>
               <button @click="estudioFormOpen = false" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
             </div>
@@ -963,7 +999,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbwqMTsfutZWO2celTKuSTuoH7fM6h5joGGcXdc_1kvgRayueR2aDuz9quZct3azCcDI/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbwdi0FMtSPpyYTsUZjzVDXulND3TCYtsLgLgC9zNJ39Run96q60Zlg2R1A4TRqMpe2l/exec';
 
     const { createApp } = Vue;
 
@@ -993,6 +1029,8 @@
           newTemplateTipo: '',
           newTemplateDocId: '',
           templatePlaceholdersDetected: [],
+          templateRequirementPreview: { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] },
+          documentTemplateRequirements: { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] },
 
           centroFieldDefs: [
             { key: 'Nombre_Centro_Docente', label: 'Nombre del centro docente' },
@@ -1075,7 +1113,7 @@
 
           studentForm: {},
           companyForm: {},
-          genDocForm: { tipo: '', studentId: '', periodoId: '', tutorEmpresaId: '', camposText: '', pidiendoIdConvenio: false, idConvenioManual: '' }
+          genDocForm: { tipo: '', studentId: '', companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', pidiendoIdConvenio: false, idConvenioManual: '' }
         };
       },
       computed: {
@@ -1156,11 +1194,18 @@
           });
         },
         genDocEmpresaId() {
+          if (!this.documentTemplateRequirements.requiresStudent && this.genDocForm.companyId) return this.genDocForm.companyId;
           const s = this.students.find((x) => x.id === this.genDocForm.studentId);
           if (!s) return '';
           const periodos = Array.isArray(s.Periodos) ? s.Periodos : [];
           const p = this.genDocForm.periodoId ? periodos.find((x) => x.id === this.genDocForm.periodoId) : periodos[periodos.length - 1];
           return p ? p.EmpresaId : '';
+        },
+        documentCompanySelectorVisible() {
+          return !!(this.documentTemplateRequirements.requiresCompany && (!this.documentTemplateRequirements.requiresStudent || !this.documentTemplateRequirements.requiresPeriodo));
+        },
+        documentPeriodoSelectorVisible() {
+          return !!(this.documentTemplateRequirements.requiresPeriodo && this.genDocForm.studentId);
         },
         allCalendarMonths() {
           let start = new Date(this.calendarioAdminForm.startDate || '');
@@ -1266,6 +1311,7 @@
           if (source === 'company') return 'Empresa';
           if (source === 'tutorEmpresa') return 'Tutor de empresa';
           if (source === 'tutorCentro') return 'Tutor de centro';
+          if (source === 'periodo') return 'Periodo / FFE';
           return 'Documento';
         },
         placeholderSourceClass(source) {
@@ -1274,6 +1320,7 @@
           if (source === 'company') return 'px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-200';
           if (source === 'tutorEmpresa') return 'px-2 py-0.5 rounded bg-sky-500/20 border border-sky-500/40 text-sky-200';
           if (source === 'tutorCentro') return 'px-2 py-0.5 rounded bg-fuchsia-500/20 border border-fuchsia-500/40 text-fuchsia-200';
+          if (source === 'periodo') return 'px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-200';
           return 'px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-200';
         },
         // Replica en el cliente el mismo criterio de normalizacion que usa el backend
@@ -1663,10 +1710,11 @@
         companyNameById(id) { const c = this.companies.find((x) => x.id === id); return c ? c.Nombre_Empresa : 'Sin empresa'; },
         studentNameById(id) { const s = this.students.find((x) => x.id === id); return s ? `${s.Nombre_Alumno||''} ${s.Apellidos_Alumno||''}`.trim() : 'Alumno no encontrado'; },
         tutoresDeEmpresa(empresaId) { const c = this.companies.find((x) => x.id === empresaId); return c && Array.isArray(c.TutoresEmpresa) ? c.TutoresEmpresa : []; },
+        tutorEmpresaDisplayName(t) { return t ? `${t.Nombre_Tutor || ''} ${t.Apellidos_Tutor || ''}`.trim() || t.Nombre_Apellidos_Tutor || '' : ''; },
         tutorEmpresaNameById(empresaId, tutorId) {
           if (!tutorId) return '';
           const t = this.tutoresDeEmpresa(empresaId).find((x) => x.id === tutorId);
-          return t ? t.Nombre_Apellidos_Tutor : '';
+          return t ? this.tutorEmpresaDisplayName(t) : '';
         },
         tutorCentroNameById(tutorId) {
           if (!tutorId) return '';
@@ -1759,7 +1807,7 @@
 
         // ---------- CICLOS FORMATIVOS / ESTUDIOS (Admin) ----------
         startNewEstudio() {
-          this.estudioForm = { id: '', Codigo_Estudio: '', Nombre_Estudio: '', Grado_Estudio: '' };
+          this.estudioForm = { id: '', Codigo_Estudio: '', Nombre_Estudio: '', Grado_Estudio: '', Regimen_Estudio: 'General' };
           this.estudioFormOpen = true;
         },
         editEstudio(e) {
@@ -1961,14 +2009,28 @@
         onDiaPeriodoChange(periodo) {
           // Al marcar un dia, aseguramos que exista su hueco de horario; al desmarcar, lo limpiamos.
           const nuevo = {};
-          periodo.Dias_Periodo.forEach((d) => { nuevo[d] = periodo.Horario_Periodo[d] || { inicio: '', fin: '' }; });
+          periodo.Dias_Periodo.forEach((d) => {
+            const actual = periodo.Horario_Periodo[d];
+            if (Array.isArray(actual) && actual.length) nuevo[d] = actual;
+            else if (actual && (actual.inicio || actual.fin)) nuevo[d] = [{ inicio: actual.inicio || '', fin: actual.fin || '' }];
+            else nuevo[d] = [{ inicio: '', fin: '' }];
+          });
           periodo.Horario_Periodo = nuevo;
+        },
+        addHorarioSlot(periodo, dia) {
+          if (!Array.isArray(periodo.Horario_Periodo[dia])) periodo.Horario_Periodo[dia] = [];
+          periodo.Horario_Periodo[dia].push({ inicio: '', fin: '' });
+        },
+        removeHorarioSlot(periodo, dia, idx) {
+          if (!Array.isArray(periodo.Horario_Periodo[dia])) return;
+          periodo.Horario_Periodo[dia].splice(idx, 1);
+          if (!periodo.Horario_Periodo[dia].length) periodo.Horario_Periodo[dia] = [{ inicio: '', fin: '' }];
         },
         aplicarHorarioATodos(periodo) {
           const primero = periodo.Dias_Periodo[0];
           if (!primero || !periodo.Horario_Periodo[primero]) return;
-          const base = periodo.Horario_Periodo[primero];
-          periodo.Dias_Periodo.forEach((d) => { periodo.Horario_Periodo[d] = { inicio: base.inicio, fin: base.fin }; });
+          const base = JSON.parse(JSON.stringify(periodo.Horario_Periodo[primero]));
+          periodo.Dias_Periodo.forEach((d) => { periodo.Horario_Periodo[d] = JSON.parse(JSON.stringify(base)); });
         },
         horasEntre(inicio, fin) {
           if (!inicio || !fin) return 0;
@@ -1980,8 +2042,8 @@
         },
         calcularHorasSemanaPeriodo(periodo) {
           return periodo.Dias_Periodo.reduce((acc, d) => {
-            const h = periodo.Horario_Periodo[d];
-            return acc + (h ? this.horasEntre(h.inicio, h.fin) : 0);
+            const slots = Array.isArray(periodo.Horario_Periodo[d]) ? periodo.Horario_Periodo[d] : [];
+            return acc + slots.reduce((sum, h) => sum + this.horasEntre(h.inicio, h.fin), 0);
           }, 0);
         },
         calcularHorasTotalesPeriodoPara(periodo, cursoAcademicoId) {
@@ -2000,8 +2062,8 @@
             const key = idxToKey[cursor.getDay()];
             const iso = this.formatLocalDate(cursor);
             if (diasSet.has(key) && !festivos.has(iso)) {
-              const h = periodo.Horario_Periodo[key];
-              total += h ? this.horasEntre(h.inicio, h.fin) : 0;
+              const slots = Array.isArray(periodo.Horario_Periodo[key]) ? periodo.Horario_Periodo[key] : [];
+              total += slots.reduce((sum, h) => sum + this.horasEntre(h.inicio, h.fin), 0);
             }
             cursor.setDate(cursor.getDate() + 1);
             safety += 1;
@@ -2153,7 +2215,7 @@
         },
         cancelCompanyForm() { this.startNewCompany(false); },
         addTutorEmpresa() {
-          this.companyForm.TutoresEmpresa.push({ id: crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`, Nombre_Apellidos_Tutor: '', DNI_Tutor: '', Email_Tutor: '', Telefono_Tutor: '' });
+          this.companyForm.TutoresEmpresa.push({ id: crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`, Nombre_Tutor: '', Apellidos_Tutor: '', DNI_Tutor: '', Email_Tutor: '', Telefono_Tutor: '' });
         },
         removeTutorEmpresa(index) { this.companyForm.TutoresEmpresa.splice(index, 1); },
         async saveCompany() {
@@ -2198,14 +2260,35 @@
           return s && Array.isArray(s.Periodos) ? s.Periodos : [];
         },
         openGenerateDocForm() {
-          this.genDocForm = { tipo: this.documentTiposDisponibles[0] || '', studentId: '', periodoId: '', tutorEmpresaId: '', camposText: '', pidiendoIdConvenio: false, idConvenioManual: '' };
+          this.genDocForm = { tipo: this.documentTiposDisponibles[0] || '', studentId: '', companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', pidiendoIdConvenio: false, idConvenioManual: '' };
           this.genDocFormOpen = true;
+          this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
+          if (this.genDocForm.tipo) this.onGenDocTipoChange();
         },
-        onGenDocStudentChange() { this.genDocForm.periodoId = ''; this.genDocForm.tutorEmpresaId = ''; this.genDocForm.pidiendoIdConvenio = false; this.genDocForm.idConvenioManual = ''; },
+        async onGenDocTipoChange() {
+          this.genDocForm.studentId = '';
+          this.genDocForm.companyId = '';
+          this.genDocForm.periodoId = '';
+          this.genDocForm.tutorEmpresaId = '';
+          this.genDocForm.pidiendoIdConvenio = false;
+          this.genDocForm.idConvenioManual = '';
+          const templateDocId = (this.docSettings.templates || {})[this.genDocForm.tipo] || '';
+          if (!templateDocId) return;
+          try {
+            const data = await this.postToServer('preview_template_placeholders', { templateDocId });
+            this.documentTemplateRequirements = data.templateRequirements || this.documentTemplateRequirements;
+          } catch (err) {
+            this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
+            this.showToast('error', `No se pudo analizar la plantilla del documento: ${err.message || 'ERROR'}`);
+          }
+        },
+        onGenDocStudentChange() { this.genDocForm.periodoId = ''; this.genDocForm.companyId = ''; this.genDocForm.tutorEmpresaId = ''; this.genDocForm.pidiendoIdConvenio = false; this.genDocForm.idConvenioManual = ''; },
+        onGenDocCompanyChange() { this.genDocForm.tutorEmpresaId = ''; this.genDocForm.pidiendoIdConvenio = false; this.genDocForm.idConvenioManual = ''; },
         onGenDocPeriodoChange() { this.genDocForm.tutorEmpresaId = ''; },
         async generateDocumentPdf() {
           if (!this.genDocForm.tipo) { this.showToast('error', 'Selecciona un tipo de documento.'); return; }
-          if (!this.genDocForm.studentId) { this.showToast('error', 'Selecciona un alumno/a.'); return; }
+          if (this.documentTemplateRequirements.requiresStudent && !this.genDocForm.studentId) { this.showToast('error', 'Selecciona un alumno/a.'); return; }
+          if (this.documentCompanySelectorVisible && !this.genDocForm.companyId) { this.showToast('error', 'Selecciona una empresa.'); return; }
           if (this.genDocForm.pidiendoIdConvenio && !this.genDocForm.idConvenioManual) {
             this.showToast('error', 'Indica el numero de convenio (formato 001CM) para poder generar el documento.'); return;
           }
@@ -2215,6 +2298,7 @@
               const payload = {
                 tipo: this.genDocForm.tipo,
                 studentId: this.genDocForm.studentId,
+                companyId: this.genDocForm.companyId,
                 periodoId: this.genDocForm.periodoId,
                 tutorEmpresaId: this.genDocForm.tutorEmpresaId,
                 idConvenio: this.genDocForm.idConvenioManual,
@@ -2237,7 +2321,19 @@
                 return;
               }
               if (codigo === 'ID_CONVENIO_REQUIERE_EMPRESA') {
-                this.showToast('error', 'Este documento necesita el numero de convenio, pero el alumno/a no tiene empresa asignada en el periodo elegido.');
+                this.showToast('error', 'Este documento necesita una empresa con numero de convenio asociado.');
+                return;
+              }
+              if (codigo === 'COMPANY_ID_REQUIRED') {
+                this.showToast('error', 'La plantilla requiere seleccionar una empresa.');
+                return;
+              }
+              if (codigo === 'STUDENT_ID_REQUIRED') {
+                this.showToast('error', 'La plantilla requiere seleccionar un alumno/a.');
+                return;
+              }
+              if (codigo === 'PERIODO_REQUIRED') {
+                this.showToast('error', 'La plantilla requiere seleccionar un periodo de FFE.');
                 return;
               }
               this.lastSyncError = `Fallo generando el documento: ${codigo}`;
@@ -2282,12 +2378,13 @@
             }
           });
         },
-        addTemplateMapping() {
+        async addTemplateMapping() {
           const tipo = (this.newTemplateTipo || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
           const docId = (this.newTemplateDocId || '').trim();
           if (!tipo || !docId) { this.showToast('error', 'Indica un tipo y una plantilla validos.'); return; }
           this.docSettings.templates = { ...this.docSettings.templates, [tipo]: docId };
           this.newTemplateTipo = ''; this.newTemplateDocId = '';
+          await this.previewTemplateFor(docId);
         },
         removeTemplateMapping(tipo) {
           const copy = { ...this.docSettings.templates };
@@ -2321,7 +2418,10 @@
             try {
               const data = await this.postToServer('preview_template_placeholders', { templateDocId });
               this.templatePlaceholdersDetected = Array.isArray(data.placeholdersDetected) ? data.placeholdersDetected : [];
-              const msg = this.templatePlaceholdersDetected.length ? `Campos detectados: ${this.templatePlaceholdersDetected.length}` : 'No se detectaron campos <...> en la plantilla.';
+              this.templateRequirementPreview = data.templateRequirements || this.templateRequirementPreview;
+              const msg = this.templatePlaceholdersDetected.length
+                ? `Campos detectados: ${this.templatePlaceholdersDetected.length}. Manuales: ${(this.templateRequirementPreview.runtimeFields || []).length}. No reconocidos: ${(this.templateRequirementPreview.unresolvedFields || []).length}.`
+                : 'No se detectaron campos <...> en la plantilla.';
               this.showToast(this.templatePlaceholdersDetected.length ? 'success' : 'error', msg);
             } catch (err) {
               this.lastSyncError = `No se pudo leer la plantilla: ${err.message || 'ERROR'}`;
