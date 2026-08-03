@@ -669,9 +669,13 @@
             </div>
           </div>
           <div v-if="documentTemplateRequirements.runtimeFields.length" class="mt-3 p-3 rounded-lg bg-amber-950/30 border border-amber-800/40 text-xs text-amber-100">
-            <div class="font-bold mb-1">Campos manuales para este documento</div>
-            <div class="flex flex-wrap gap-2">
-              <span v-for="field in documentTemplateRequirements.runtimeFields" :key="field" class="px-2 py-1 rounded bg-amber-900/40 border border-amber-700">&lt;{{ field }}&gt;</span>
+            <div class="font-bold mb-2">Campos manuales obligatorios para este documento</div>
+            <p class="mb-2 text-amber-200">Estos campos se piden en el momento de generar para que no queden vacios en el PDF.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div v-for="field in documentTemplateRequirements.runtimeFields" :key="field">
+                <span class="field-label">&lt;{{ field }}&gt;</span>
+                <input v-model="genDocForm.manualFields[field]" class="field" :placeholder="`Valor para <${field}>`" />
+              </div>
             </div>
           </div>
           <div v-if="documentTemplateRequirements.unresolvedFields.length" class="mt-3 p-3 rounded-lg bg-red-950/30 border border-red-800/40 text-xs text-red-100">
@@ -999,7 +1003,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbwdi0FMtSPpyYTsUZjzVDXulND3TCYtsLgLgC9zNJ39Run96q60Zlg2R1A4TRqMpe2l/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbx-ZVdWI4lh0bz4O1RtcSfF-9xSzd1oO_urwfBJQtvLKufYuq-578Kr5NthRIKCki4N/exec';
 
     const { createApp } = Vue;
 
@@ -1113,7 +1117,7 @@
 
           studentForm: {},
           companyForm: {},
-          genDocForm: { tipo: '', studentId: '', companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', pidiendoIdConvenio: false, idConvenioManual: '' }
+          genDocForm: { tipo: '', studentId: '', companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '' }
         };
       },
       computed: {
@@ -2027,10 +2031,19 @@
           if (!periodo.Horario_Periodo[dia].length) periodo.Horario_Periodo[dia] = [{ inicio: '', fin: '' }];
         },
         aplicarHorarioATodos(periodo) {
-          const primero = periodo.Dias_Periodo[0];
-          if (!primero || !periodo.Horario_Periodo[primero]) return;
-          const base = JSON.parse(JSON.stringify(periodo.Horario_Periodo[primero]));
-          periodo.Dias_Periodo.forEach((d) => { periodo.Horario_Periodo[d] = JSON.parse(JSON.stringify(base)); });
+          const dias = Array.isArray(periodo.Dias_Periodo) ? periodo.Dias_Periodo : [];
+          if (!dias.length) return;
+          const diaOrigen = dias.find((d) => {
+            const slots = Array.isArray(periodo.Horario_Periodo[d]) ? periodo.Horario_Periodo[d] : [];
+            return slots.some((s) => ((s && s.inicio) || '').trim() || ((s && s.fin) || '').trim());
+          }) || dias[0];
+          const sourceSlots = Array.isArray(periodo.Horario_Periodo[diaOrigen]) ? periodo.Horario_Periodo[diaOrigen] : [];
+          const base = sourceSlots.map((slot) => ({ inicio: (slot && slot.inicio) || '', fin: (slot && slot.fin) || '' }));
+          if (!base.length || !base.some((s) => (s.inicio || '').trim() || (s.fin || '').trim())) {
+            this.showToast('error', 'Primero completa al menos una franja horaria y despues usa "Copiar las franjas del primer dia a todos".');
+            return;
+          }
+          dias.forEach((d) => { periodo.Horario_Periodo[d] = base.map((slot) => ({ ...slot })); });
         },
         horasEntre(inicio, fin) {
           if (!inicio || !fin) return 0;
@@ -2259,8 +2272,19 @@
           const s = this.students.find((x) => x.id === studentId);
           return s && Array.isArray(s.Periodos) ? s.Periodos : [];
         },
+        syncGenDocManualFields() {
+          const current = (this.genDocForm && this.genDocForm.manualFields && typeof this.genDocForm.manualFields === 'object')
+            ? this.genDocForm.manualFields
+            : {};
+          const required = Array.isArray(this.documentTemplateRequirements.runtimeFields)
+            ? this.documentTemplateRequirements.runtimeFields
+            : [];
+          const next = {};
+          required.forEach((field) => { next[field] = (current[field] || '').toString(); });
+          this.genDocForm.manualFields = next;
+        },
         openGenerateDocForm() {
-          this.genDocForm = { tipo: this.documentTiposDisponibles[0] || '', studentId: '', companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', pidiendoIdConvenio: false, idConvenioManual: '' };
+          this.genDocForm = { tipo: this.documentTiposDisponibles[0] || '', studentId: '', companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '' };
           this.genDocFormOpen = true;
           this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
           if (this.genDocForm.tipo) this.onGenDocTipoChange();
@@ -2273,12 +2297,18 @@
           this.genDocForm.pidiendoIdConvenio = false;
           this.genDocForm.idConvenioManual = '';
           const templateDocId = (this.docSettings.templates || {})[this.genDocForm.tipo] || '';
-          if (!templateDocId) return;
+          if (!templateDocId) {
+            this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
+            this.syncGenDocManualFields();
+            return;
+          }
           try {
             const data = await this.postToServer('preview_template_placeholders', { templateDocId });
             this.documentTemplateRequirements = data.templateRequirements || this.documentTemplateRequirements;
+            this.syncGenDocManualFields();
           } catch (err) {
             this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
+            this.syncGenDocManualFields();
             this.showToast('error', `No se pudo analizar la plantilla del documento: ${err.message || 'ERROR'}`);
           }
         },
@@ -2289,12 +2319,25 @@
           if (!this.genDocForm.tipo) { this.showToast('error', 'Selecciona un tipo de documento.'); return; }
           if (this.documentTemplateRequirements.requiresStudent && !this.genDocForm.studentId) { this.showToast('error', 'Selecciona un alumno/a.'); return; }
           if (this.documentCompanySelectorVisible && !this.genDocForm.companyId) { this.showToast('error', 'Selecciona una empresa.'); return; }
+          const runtimeMissing = (this.documentTemplateRequirements.runtimeFields || []).filter((field) => {
+            const value = (this.genDocForm.manualFields && this.genDocForm.manualFields[field]) || '';
+            return !value.toString().trim();
+          });
+          if (runtimeMissing.length) {
+            this.showToast('error', `Completa los campos manuales obligatorios antes de generar: ${runtimeMissing.map((x) => `<${x}>`).join(', ')}`);
+            return;
+          }
           if (this.genDocForm.pidiendoIdConvenio && !this.genDocForm.idConvenioManual) {
             this.showToast('error', 'Indica el numero de convenio (formato 001CM) para poder generar el documento.'); return;
           }
           this.lastSyncError = '';
           await this.runBusy('Generando documento PDF...', async () => {
             try {
+              const camposAdicionales = this.parseGlobalFieldsFromEditor(this.genDocForm.camposText);
+              const camposManuales = {};
+              (this.documentTemplateRequirements.runtimeFields || []).forEach((field) => {
+                camposManuales[field] = ((this.genDocForm.manualFields && this.genDocForm.manualFields[field]) || '').toString().trim();
+              });
               const payload = {
                 tipo: this.genDocForm.tipo,
                 studentId: this.genDocForm.studentId,
@@ -2302,7 +2345,7 @@
                 periodoId: this.genDocForm.periodoId,
                 tutorEmpresaId: this.genDocForm.tutorEmpresaId,
                 idConvenio: this.genDocForm.idConvenioManual,
-                campos: this.parseGlobalFieldsFromEditor(this.genDocForm.camposText)
+                campos: { ...camposAdicionales, ...camposManuales }
               };
               const data = await this.postToServer('generate_document_pdf', payload);
               if (data && data.document) this.documents.push(data.document);
@@ -2315,6 +2358,12 @@
               this.showToast('success', 'Documento generado y guardado en Drive correctamente.');
             } catch (err) {
               const codigo = (err && err.message) || 'ERROR';
+              if (codigo.startsWith('RUNTIME_FIELDS_REQUIRED|')) {
+                const faltan = codigo.split('|')[1] || '';
+                const campos = faltan.split(',').map((x) => x.trim()).filter((x) => !!x);
+                this.showToast('error', `Faltan campos manuales obligatorios para la plantilla: ${campos.map((x) => `<${x}>`).join(', ')}`);
+                return;
+              }
               if (codigo === 'ID_CONVENIO_REQUIRED') {
                 this.genDocForm.pidiendoIdConvenio = true;
                 this.showToast('error', 'Esta empresa no tiene numero de convenio. Indicalo abajo (formato 001CM) y vuelve a pulsar Generar PDF.');
@@ -2328,12 +2377,24 @@
                 this.showToast('error', 'La plantilla requiere seleccionar una empresa.');
                 return;
               }
+              if (codigo === 'COMPANY_NOT_FOUND') {
+                this.showToast('error', 'La empresa seleccionada no existe o fue eliminada. Recarga y vuelve a intentarlo.');
+                return;
+              }
               if (codigo === 'STUDENT_ID_REQUIRED') {
                 this.showToast('error', 'La plantilla requiere seleccionar un alumno/a.');
                 return;
               }
               if (codigo === 'PERIODO_REQUIRED') {
                 this.showToast('error', 'La plantilla requiere seleccionar un periodo de FFE.');
+                return;
+              }
+              if (codigo === 'TUTOR_EMPRESA_REQUIRED') {
+                this.showToast('error', 'La plantilla requiere un tutor/a de empresa. Selecciona uno o asignalo en el periodo de FFE.');
+                return;
+              }
+              if (codigo === 'TUTOR_CENTRO_REQUIRED') {
+                this.showToast('error', 'La plantilla requiere tutor/a del centro y el alumno no lo tiene asignado.');
                 return;
               }
               this.lastSyncError = `Fallo generando el documento: ${codigo}`;
