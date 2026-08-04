@@ -639,7 +639,7 @@
                 <option v-for="tipo in documentTiposDisponibles" :key="tipo" :value="tipo">{{ tipo }}</option>
               </select>
             </div>
-            <div v-if="documentTemplateRequirements.requiresStudent">
+            <div v-if="documentStudentSelectorVisible">
               <span class="field-label">Alumno/a</span>
               <select v-model="genDocForm.studentId" @change="onGenDocStudentChange" class="field">
                 <option value="">Selecciona alumno/a</option>
@@ -666,6 +666,24 @@
                 <option value="">Usar el tutor del periodo seleccionado</option>
                 <option v-for="t in tutoresDeEmpresa(genDocEmpresaId)" :key="t.id" :value="t.id">{{ tutorEmpresaDisplayName(t) }}</option>
               </select>
+            </div>
+          </div>
+          <div v-if="selectedTemplateScope === 'company'" class="mt-3 p-3 rounded-lg bg-[#040914] border border-slate-800">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div class="font-bold text-xs text-slate-200">Alumnos/as que apareceran en la tabla</div>
+              <div class="flex gap-2">
+                <button @click="selectAllCompanyDocStudents" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-[10px]">Seleccionar todos</button>
+                <button @click="clearCompanyDocStudents" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-[10px]">Quitar todos</button>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-400 mb-2">Selecciona el alumnado de esta empresa que quieres incluir en la relacion. Se insertara una fila por alumno/a.</p>
+            <div v-if="!genDocForm.companyId" class="text-xs text-amber-300">Selecciona antes la empresa para cargar su alumnado.</div>
+            <div v-else-if="genDocStudentsCandidates.length === 0" class="text-xs text-amber-300">No hay alumnado con periodos de FFE asignados a esta empresa.</div>
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+              <label v-for="s in genDocStudentsCandidates" :key="s.id" class="doc-check text-xs cursor-pointer">
+                <input type="checkbox" :value="s.id" v-model="genDocForm.studentIds" />
+                <span>{{ s.Apellidos_Alumno }} {{ s.Nombre_Alumno }} · {{ s.DNI_Alumno || 'Sin DNI' }}</span>
+              </label>
             </div>
           </div>
           <div v-if="documentTemplateRequirements.runtimeFields.length" class="mt-3 p-3 rounded-lg bg-amber-950/30 border border-amber-800/40 text-xs text-amber-100">
@@ -970,15 +988,20 @@
             <div class="flex flex-col sm:flex-row gap-2 mb-3">
               <input v-model="newTemplateTipo" placeholder="Tipo (ej. CONVENIO, ANEXO_I, SEGUIMIENTO_8)" class="field" />
               <input v-model="newTemplateDocId" placeholder="ID o enlace de la plantilla Google Docs" class="field" />
+              <select v-model="newTemplateScope" class="field sm:max-w-[170px]">
+                <option value="student">Documento de alumno/a</option>
+                <option value="company">Documento de empresa</option>
+              </select>
               <button @click="addTemplateMapping" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold whitespace-nowrap">Anadir tipo</button>
             </div>
 
             <div class="space-y-1">
               <div v-for="tipo in Object.keys(docSettings.templates || {})" :key="tipo" class="flex items-center justify-between gap-2 text-xs bg-[#040914] border border-slate-800 rounded-lg p-2">
                 <span class="font-bold text-slate-200">{{ tipo }}</span>
-                <span class="text-slate-400 truncate flex-1 mx-2">{{ docSettings.templates[tipo] }}</span>
+                <span class="text-slate-400 truncate flex-1 mx-2">{{ templateDocIdByTipo(tipo) }}</span>
+                <span class="px-2 py-0.5 rounded border text-[10px]" :class="templateScopeByTipo(tipo) === 'company' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-200' : 'bg-blue-500/20 border-blue-500/40 text-blue-200'">{{ templateScopeByTipo(tipo) === 'company' ? 'Empresa' : 'Alumno/a' }}</span>
                 <div class="flex gap-1">
-                  <button @click="previewTemplateFor(docSettings.templates[tipo])" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Leer campos</button>
+                  <button @click="previewTemplateFor(templateDocIdByTipo(tipo))" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Leer campos</button>
                   <button @click="removeTemplateMapping(tipo)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Quitar</button>
                 </div>
               </div>
@@ -1003,7 +1026,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbx-ZVdWI4lh0bz4O1RtcSfF-9xSzd1oO_urwfBJQtvLKufYuq-578Kr5NthRIKCki4N/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbx6VV-8meLphvCZ-NmvDM3a4SJEcqEu3fD8wX7Rbajc0j7hLAVLN8M2Gj4KhbsEMWv0/exec';
 
     const { createApp } = Vue;
 
@@ -1032,6 +1055,7 @@
           docSettingsGlobalText: '',
           newTemplateTipo: '',
           newTemplateDocId: '',
+          newTemplateScope: 'student',
           templatePlaceholdersDetected: [],
           templateRequirementPreview: { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] },
           documentTemplateRequirements: { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] },
@@ -1117,7 +1141,7 @@
 
           studentForm: {},
           companyForm: {},
-          genDocForm: { tipo: '', studentId: '', companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '' }
+          genDocForm: { tipo: '', studentId: '', studentIds: [], companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '' }
         };
       },
       computed: {
@@ -1198,6 +1222,7 @@
           });
         },
         genDocEmpresaId() {
+          if (this.selectedTemplateScope === 'company' && this.genDocForm.companyId) return this.genDocForm.companyId;
           if (!this.documentTemplateRequirements.requiresStudent && this.genDocForm.companyId) return this.genDocForm.companyId;
           const s = this.students.find((x) => x.id === this.genDocForm.studentId);
           if (!s) return '';
@@ -1205,11 +1230,30 @@
           const p = this.genDocForm.periodoId ? periodos.find((x) => x.id === this.genDocForm.periodoId) : periodos[periodos.length - 1];
           return p ? p.EmpresaId : '';
         },
+        selectedTemplateScope() {
+          return this.templateScopeByTipo(this.genDocForm.tipo);
+        },
+        documentStudentSelectorVisible() {
+          if (this.selectedTemplateScope === 'company') return false;
+          return !!this.documentTemplateRequirements.requiresStudent;
+        },
         documentCompanySelectorVisible() {
+          if (this.selectedTemplateScope === 'company') return true;
           return !!(this.documentTemplateRequirements.requiresCompany && (!this.documentTemplateRequirements.requiresStudent || !this.documentTemplateRequirements.requiresPeriodo));
         },
         documentPeriodoSelectorVisible() {
+          if (this.selectedTemplateScope === 'company') return false;
           return !!(this.documentTemplateRequirements.requiresPeriodo && this.genDocForm.studentId);
+        },
+        genDocStudentsCandidates() {
+          if (!this.genDocForm.companyId) return [];
+          return this.students
+            .filter((s) => {
+              const periodos = Array.isArray(s.Periodos) ? s.Periodos : [];
+              return periodos.some((p) => p.EmpresaId === this.genDocForm.companyId);
+            })
+            .slice()
+            .sort((a, b) => `${a.Apellidos_Alumno || ''} ${a.Nombre_Alumno || ''}`.localeCompare(`${b.Apellidos_Alumno || ''} ${b.Nombre_Alumno || ''}`));
         },
         allCalendarMonths() {
           let start = new Date(this.calendarioAdminForm.startDate || '');
@@ -1332,12 +1376,49 @@
         normalizePlaceholderKey(value) {
           return (value || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toUpperCase();
         },
+        normalizeTemplateScope(value) {
+          return (value || '').toString().toLowerCase() === 'company' ? 'company' : 'student';
+        },
+        normalizeTemplatesMap(input) {
+          const source = (input && typeof input === 'object') ? input : {};
+          const out = {};
+          Object.keys(source).forEach((tipo) => {
+            const entry = source[tipo];
+            if (!entry) return;
+            if (typeof entry === 'string') {
+              out[tipo] = { docId: entry, scope: 'student' };
+              return;
+            }
+            if (typeof entry === 'object') {
+              const docId = (entry.docId || entry.templateDocId || entry.id || '').toString().trim();
+              if (!docId) return;
+              out[tipo] = { docId, scope: this.normalizeTemplateScope(entry.scope) };
+            }
+          });
+          return out;
+        },
+        templateConfigByTipo(tipo) {
+          if (!tipo) return null;
+          return this.docSettings.templates[tipo] || null;
+        },
+        templateDocIdByTipo(tipo) {
+          const cfg = this.templateConfigByTipo(tipo);
+          if (!cfg) return '';
+          if (typeof cfg === 'string') return cfg;
+          return cfg.docId || cfg.templateDocId || cfg.id || '';
+        },
+        templateScopeByTipo(tipo) {
+          const cfg = this.templateConfigByTipo(tipo);
+          if (!cfg) return 'student';
+          if (typeof cfg === 'string') return 'student';
+          return this.normalizeTemplateScope(cfg.scope);
+        },
         applyDocSettingsFromSnapshot(settings) {
           const s = settings && typeof settings === 'object' ? settings : {};
           this.docSettings = {
             outputFolderId: s.outputFolderId || '',
             globalFields: (s.globalFields && typeof s.globalFields === 'object') ? s.globalFields : {},
-            templates: (s.templates && typeof s.templates === 'object') ? s.templates : {}
+            templates: this.normalizeTemplatesMap(s.templates)
           };
           this.docSettingsForm.outputFolderId = this.docSettings.outputFolderId;
 
@@ -2283,42 +2364,91 @@
           required.forEach((field) => { next[field] = (current[field] || '').toString(); });
           this.genDocForm.manualFields = next;
         },
+        syncCompanyDocStudentSelection() {
+          if (this.selectedTemplateScope !== 'company') {
+            this.genDocForm.studentIds = [];
+            return;
+          }
+          const candidates = this.genDocStudentsCandidates.map((s) => s.id);
+          const selected = Array.isArray(this.genDocForm.studentIds) ? this.genDocForm.studentIds : [];
+          const selectedSet = new Set(selected);
+          const kept = candidates.filter((id) => selectedSet.has(id));
+          this.genDocForm.studentIds = kept.length ? kept : candidates;
+        },
+        selectAllCompanyDocStudents() {
+          this.genDocForm.studentIds = this.genDocStudentsCandidates.map((s) => s.id);
+        },
+        clearCompanyDocStudents() {
+          this.genDocForm.studentIds = [];
+        },
+        normalizeTemplateRequirementsForSelectedScope(requirements) {
+          const base = requirements && typeof requirements === 'object' ? requirements : {};
+          const normalized = {
+            requiresStudent: !!base.requiresStudent,
+            requiresCompany: !!base.requiresCompany,
+            requiresPeriodo: !!base.requiresPeriodo,
+            requiresTutorEmpresa: !!base.requiresTutorEmpresa,
+            requiresTutorCentro: !!base.requiresTutorCentro,
+            runtimeFields: Array.isArray(base.runtimeFields) ? base.runtimeFields.slice() : [],
+            unresolvedFields: Array.isArray(base.unresolvedFields) ? base.unresolvedFields.slice() : []
+          };
+          if (this.selectedTemplateScope === 'company') {
+            normalized.requiresCompany = true;
+            normalized.requiresStudent = false;
+            normalized.requiresPeriodo = false;
+            normalized.requiresTutorCentro = false;
+          }
+          return normalized;
+        },
         openGenerateDocForm() {
-          this.genDocForm = { tipo: this.documentTiposDisponibles[0] || '', studentId: '', companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '' };
+          this.genDocForm = { tipo: this.documentTiposDisponibles[0] || '', studentId: '', studentIds: [], companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '' };
           this.genDocFormOpen = true;
           this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
           if (this.genDocForm.tipo) this.onGenDocTipoChange();
         },
         async onGenDocTipoChange() {
           this.genDocForm.studentId = '';
+          this.genDocForm.studentIds = [];
           this.genDocForm.companyId = '';
           this.genDocForm.periodoId = '';
           this.genDocForm.tutorEmpresaId = '';
           this.genDocForm.pidiendoIdConvenio = false;
           this.genDocForm.idConvenioManual = '';
-          const templateDocId = (this.docSettings.templates || {})[this.genDocForm.tipo] || '';
+          const templateDocId = this.templateDocIdByTipo(this.genDocForm.tipo);
           if (!templateDocId) {
             this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
             this.syncGenDocManualFields();
+            this.syncCompanyDocStudentSelection();
             return;
           }
           try {
             const data = await this.postToServer('preview_template_placeholders', { templateDocId });
-            this.documentTemplateRequirements = data.templateRequirements || this.documentTemplateRequirements;
+            this.documentTemplateRequirements = this.normalizeTemplateRequirementsForSelectedScope(data.templateRequirements || this.documentTemplateRequirements);
             this.syncGenDocManualFields();
+            this.syncCompanyDocStudentSelection();
           } catch (err) {
             this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
             this.syncGenDocManualFields();
+            this.syncCompanyDocStudentSelection();
             this.showToast('error', `No se pudo analizar la plantilla del documento: ${err.message || 'ERROR'}`);
           }
         },
         onGenDocStudentChange() { this.genDocForm.periodoId = ''; this.genDocForm.companyId = ''; this.genDocForm.tutorEmpresaId = ''; this.genDocForm.pidiendoIdConvenio = false; this.genDocForm.idConvenioManual = ''; },
-        onGenDocCompanyChange() { this.genDocForm.tutorEmpresaId = ''; this.genDocForm.pidiendoIdConvenio = false; this.genDocForm.idConvenioManual = ''; },
+        onGenDocCompanyChange() {
+          this.genDocForm.tutorEmpresaId = '';
+          this.genDocForm.pidiendoIdConvenio = false;
+          this.genDocForm.idConvenioManual = '';
+          this.syncCompanyDocStudentSelection();
+        },
         onGenDocPeriodoChange() { this.genDocForm.tutorEmpresaId = ''; },
         async generateDocumentPdf() {
           if (!this.genDocForm.tipo) { this.showToast('error', 'Selecciona un tipo de documento.'); return; }
           if (this.documentTemplateRequirements.requiresStudent && !this.genDocForm.studentId) { this.showToast('error', 'Selecciona un alumno/a.'); return; }
           if (this.documentCompanySelectorVisible && !this.genDocForm.companyId) { this.showToast('error', 'Selecciona una empresa.'); return; }
+          if (this.selectedTemplateScope === 'company' && (!Array.isArray(this.genDocForm.studentIds) || this.genDocForm.studentIds.length === 0)) {
+            this.showToast('error', 'Selecciona al menos un alumno/a para incluirlo en la relacion de empresa.');
+            return;
+          }
           const runtimeMissing = (this.documentTemplateRequirements.runtimeFields || []).filter((field) => {
             const value = (this.genDocForm.manualFields && this.genDocForm.manualFields[field]) || '';
             return !value.toString().trim();
@@ -2341,6 +2471,7 @@
               const payload = {
                 tipo: this.genDocForm.tipo,
                 studentId: this.genDocForm.studentId,
+                studentIds: this.selectedTemplateScope === 'company' ? this.genDocForm.studentIds : [],
                 companyId: this.genDocForm.companyId,
                 periodoId: this.genDocForm.periodoId,
                 tutorEmpresaId: this.genDocForm.tutorEmpresaId,
@@ -2375,6 +2506,14 @@
               }
               if (codigo === 'COMPANY_ID_REQUIRED') {
                 this.showToast('error', 'La plantilla requiere seleccionar una empresa.');
+                return;
+              }
+              if (codigo === 'COMPANY_WITHOUT_STUDENTS') {
+                this.showToast('error', 'La empresa seleccionada no tiene alumnado con FFE asignada.');
+                return;
+              }
+              if (codigo === 'COMPANY_STUDENTS_REQUIRED') {
+                this.showToast('error', 'Selecciona al menos un alumno/a para incluirlo en el documento de empresa.');
                 return;
               }
               if (codigo === 'COMPANY_NOT_FOUND') {
@@ -2443,8 +2582,11 @@
           const tipo = (this.newTemplateTipo || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
           const docId = (this.newTemplateDocId || '').trim();
           if (!tipo || !docId) { this.showToast('error', 'Indica un tipo y una plantilla validos.'); return; }
-          this.docSettings.templates = { ...this.docSettings.templates, [tipo]: docId };
-          this.newTemplateTipo = ''; this.newTemplateDocId = '';
+          this.docSettings.templates = {
+            ...this.docSettings.templates,
+            [tipo]: { docId, scope: this.normalizeTemplateScope(this.newTemplateScope) }
+          };
+          this.newTemplateTipo = ''; this.newTemplateDocId = ''; this.newTemplateScope = 'student';
           await this.previewTemplateFor(docId);
         },
         removeTemplateMapping(tipo) {
@@ -2462,7 +2604,7 @@
               const payload = {
                 outputFolderId: this.docSettingsForm.outputFolderId,
                 globalFields: { ...otros, ...centroFields },
-                templates: this.docSettings.templates
+                templates: this.normalizeTemplatesMap(this.docSettings.templates)
               };
               const data = await this.postToServer('set_doc_settings', payload);
               this.applyDocSettingsFromSnapshot(data.docSettings || payload);
