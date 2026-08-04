@@ -1026,7 +1026,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbx6VV-8meLphvCZ-NmvDM3a4SJEcqEu3fD8wX7Rbajc0j7hLAVLN8M2Gj4KhbsEMWv0/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbx5C1lYs3hQWOYim6e7503kZzOeUvyqsoFVScPkBG8qu9kmal4OYthG0vsvfKCs5eqI/exec';
 
     const { createApp } = Vue;
 
@@ -2230,6 +2230,70 @@
         toggleAllCompanySelection(event) {
           this.selectedCompanyIds = event.target.checked ? this.filteredCompanies.map((c) => c.id) : [];
         },
+        isNonJson404Error(err) {
+          return ((err && err.message) || '') === 'NON_JSON_404';
+        },
+        buildBulkFallbackErrorMessage(entityLabel, actionLabel, updated, failed, firstErrorCode) {
+          if (!failed) return `${updated} ${entityLabel} actualizados.`;
+          const code = firstErrorCode || 'ERROR';
+          return `${actionLabel} parcial: ${updated} correctos, ${failed} con error. Primer error: ${code}.`;
+        },
+        async fallbackBulkUpdateStudentsOneByOne() {
+          const ids = Array.isArray(this.selectedStudentIds) ? this.selectedStudentIds.slice() : [];
+          let updated = 0;
+          let failed = 0;
+          let firstErrorCode = '';
+          for (let i = 0; i < ids.length; i += 1) {
+            const student = this.students.find((s) => s.id === ids[i]);
+            if (!student) continue;
+            const payload = JSON.parse(JSON.stringify(student));
+            payload[this.bulkStudentField] = this.bulkStudentValue;
+            try {
+              const data = await this.postToServer('upsert_student', payload);
+              if (data && data.student) this.upsertLocal(this.students, data.student, 'id');
+              updated += 1;
+            } catch (innerErr) {
+              failed += 1;
+              if (!firstErrorCode) firstErrorCode = (innerErr && innerErr.message) || 'ERROR';
+            }
+          }
+          const msg = this.buildBulkFallbackErrorMessage('alumno/s', 'Actualizacion masiva', updated, failed, firstErrorCode);
+          this.showToast(failed ? 'error' : 'success', msg);
+          this.lastSyncError = failed ? msg : '';
+          if (!failed) {
+            this.selectedStudentIds = [];
+            this.bulkStudentField = '';
+            this.bulkStudentValue = '';
+          }
+        },
+        async fallbackBulkUpdateCompaniesOneByOne() {
+          const ids = Array.isArray(this.selectedCompanyIds) ? this.selectedCompanyIds.slice() : [];
+          let updated = 0;
+          let failed = 0;
+          let firstErrorCode = '';
+          for (let i = 0; i < ids.length; i += 1) {
+            const company = this.companies.find((c) => c.id === ids[i]);
+            if (!company) continue;
+            const payload = JSON.parse(JSON.stringify(company));
+            payload[this.bulkCompanyField] = this.bulkCompanyValue;
+            try {
+              const data = await this.postToServer('upsert_company', payload);
+              if (data && data.company) this.upsertLocal(this.companies, data.company, 'id');
+              updated += 1;
+            } catch (innerErr) {
+              failed += 1;
+              if (!firstErrorCode) firstErrorCode = (innerErr && innerErr.message) || 'ERROR';
+            }
+          }
+          const msg = this.buildBulkFallbackErrorMessage('empresa/s', 'Actualizacion masiva', updated, failed, firstErrorCode);
+          this.showToast(failed ? 'error' : 'success', msg);
+          this.lastSyncError = failed ? msg : '';
+          if (!failed) {
+            this.selectedCompanyIds = [];
+            this.bulkCompanyField = '';
+            this.bulkCompanyValue = '';
+          }
+        },
         async applyBulkStudentEdit() {
           if (!this.bulkStudentField) { this.showToast('error', 'Elige que campo quieres cambiar.'); return; }
           await this.runBusy(`Actualizando ${this.selectedStudentIds.length} alumno/s...`, async () => {
@@ -2241,6 +2305,11 @@
               this.showToast('success', `${data.updated} alumno/s actualizados.`);
               this.selectedStudentIds = []; this.bulkStudentField = ''; this.bulkStudentValue = '';
             } catch (err) {
+              if (this.isNonJson404Error(err)) {
+                this.showToast('error', 'El endpoint de edicion masiva no responde en este despliegue. Se aplicara un modo de compatibilidad (uno a uno).');
+                await this.fallbackBulkUpdateStudentsOneByOne();
+                return;
+              }
               this.lastSyncError = `Fallo en la edicion masiva: ${err.message || 'ERROR'}`;
               this.showToast('error', this.lastSyncError);
             }
@@ -2286,6 +2355,11 @@
               this.showToast('success', `${data.updated} empresa/s actualizadas.`);
               this.selectedCompanyIds = []; this.bulkCompanyField = ''; this.bulkCompanyValue = '';
             } catch (err) {
+              if (this.isNonJson404Error(err)) {
+                this.showToast('error', 'El endpoint de edicion masiva no responde en este despliegue. Se aplicara un modo de compatibilidad (uno a uno).');
+                await this.fallbackBulkUpdateCompaniesOneByOne();
+                return;
+              }
               this.lastSyncError = `Fallo en la edicion masiva: ${err.message || 'ERROR'}`;
               this.showToast('error', this.lastSyncError);
             }
