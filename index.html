@@ -990,11 +990,12 @@
 
           <div class="mt-4 pt-4 border-t border-slate-800">
             <h4 class="text-sm font-bold text-slate-200 mb-2">Tipos de documento y plantillas</h4>
-            <p class="text-xs text-slate-400 mb-3">Cada tipo (Convenio, Anexo I, Seguimiento 8...) usa su propia plantilla de Google Docs. La plantilla debe contener marcadores como &lt;NOMBRE_ALUMNO&gt;, &lt;NIF_EMPRESA&gt;, &lt;NOMBRE_APELLIDOS_TUTOR&gt;, etc.</p>
+            <p class="text-xs text-slate-400 mb-3">Cada tipo (Convenio, Anexo I, Seguimiento 8...) usa su propia plantilla de Google Docs y debe tener su carpeta de salida asociada. La plantilla debe contener marcadores como &lt;NOMBRE_ALUMNO&gt;, &lt;NIF_EMPRESA&gt;, &lt;NOMBRE_APELLIDOS_TUTOR&gt;, etc.</p>
 
             <div class="flex flex-col sm:flex-row gap-2 mb-3">
               <input v-model="newTemplateTipo" placeholder="Tipo (ej. CONVENIO, ANEXO_I, SEGUIMIENTO_8)" class="field" />
               <input v-model="newTemplateDocId" placeholder="ID o enlace de la plantilla Google Docs" class="field" />
+              <input v-model="newTemplateOutputFolderId" placeholder="ID o enlace de la carpeta de salida para este tipo" class="field" />
               <select v-model="newTemplateScope" class="field sm:max-w-[170px]">
                 <option value="student">Documento de alumno/a</option>
                 <option value="company">Documento de empresa</option>
@@ -1006,6 +1007,7 @@
               <div v-for="tipo in Object.keys(docSettings.templates || {})" :key="tipo" class="flex items-center justify-between gap-2 text-xs bg-[#040914] border border-slate-800 rounded-lg p-2">
                 <span class="font-bold text-slate-200">{{ tipo }}</span>
                 <span class="text-slate-400 truncate flex-1 mx-2">{{ templateDocIdByTipo(tipo) }}</span>
+                <span class="text-slate-400 truncate flex-1 mx-2">{{ templateOutputFolderIdByTipo(tipo) || 'Sin carpeta' }}</span>
                 <span class="px-2 py-0.5 rounded border text-[10px]" :class="templateScopeByTipo(tipo) === 'company' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-200' : 'bg-blue-500/20 border-blue-500/40 text-blue-200'">{{ templateScopeByTipo(tipo) === 'company' ? 'Empresa' : 'Alumno/a' }}</span>
                 <div class="flex gap-1">
                   <button @click="previewTemplateFor(templateDocIdByTipo(tipo))" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Leer campos</button>
@@ -1033,8 +1035,8 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbx5C1lYs3hQWOYim6e7503kZzOeUvyqsoFVScPkBG8qu9kmal4OYthG0vsvfKCs5eqI/exec';
-
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzxY-wHSiSefLz6jBBwTa0EQ_CvznyGA4iA5vhBRBqfiN0FxJ2aMqyU-UKN6MA01qX-/exec';
+                            
     const { createApp } = Vue;
 
     createApp({
@@ -1062,6 +1064,7 @@
           docSettingsGlobalText: '',
           newTemplateTipo: '',
           newTemplateDocId: '',
+          newTemplateOutputFolderId: '',
           newTemplateScope: 'student',
           templatePlaceholdersDetected: [],
           templateRequirementPreview: { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] },
@@ -1393,13 +1396,17 @@
             const entry = source[tipo];
             if (!entry) return;
             if (typeof entry === 'string') {
-              out[tipo] = { docId: entry, scope: 'student' };
+              out[tipo] = { docId: entry, scope: 'student', outputFolderId: '' };
               return;
             }
             if (typeof entry === 'object') {
               const docId = (entry.docId || entry.templateDocId || entry.id || '').toString().trim();
               if (!docId) return;
-              out[tipo] = { docId, scope: this.normalizeTemplateScope(entry.scope) };
+              out[tipo] = {
+                docId,
+                scope: this.normalizeTemplateScope(entry.scope),
+                outputFolderId: (entry.outputFolderId || '').toString().trim()
+              };
             }
           });
           return out;
@@ -1419,6 +1426,11 @@
           if (!cfg) return 'student';
           if (typeof cfg === 'string') return 'student';
           return this.normalizeTemplateScope(cfg.scope);
+        },
+        templateOutputFolderIdByTipo(tipo) {
+          const cfg = this.templateConfigByTipo(tipo);
+          if (!cfg || typeof cfg === 'string') return '';
+          return (cfg.outputFolderId || '').toString().trim();
         },
         applyDocSettingsFromSnapshot(settings) {
           const s = settings && typeof settings === 'object' ? settings : {};
@@ -2635,6 +2647,10 @@
                 this.showToast('error', 'La plantilla requiere tutor/a del centro y el alumno no lo tiene asignado.');
                 return;
               }
+              if (codigo === 'DOC_OUTPUT_FOLDER_REQUIRED_FOR_TYPE') {
+                this.showToast('error', 'Este tipo de documento no tiene carpeta de salida configurada. Ve a Admin y asigna una carpeta al tipo.');
+                return;
+              }
               this.lastSyncError = `Fallo generando el documento: ${codigo}`;
               this.showToast('error', this.lastSyncError);
             }
@@ -2680,12 +2696,13 @@
         async addTemplateMapping() {
           const tipo = (this.newTemplateTipo || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
           const docId = (this.newTemplateDocId || '').trim();
-          if (!tipo || !docId) { this.showToast('error', 'Indica un tipo y una plantilla validos.'); return; }
+          const outputFolderId = (this.newTemplateOutputFolderId || '').trim();
+          if (!tipo || !docId || !outputFolderId) { this.showToast('error', 'Indica tipo, plantilla y carpeta de salida para este tipo.'); return; }
           this.docSettings.templates = {
             ...this.docSettings.templates,
-            [tipo]: { docId, scope: this.normalizeTemplateScope(this.newTemplateScope) }
+            [tipo]: { docId, scope: this.normalizeTemplateScope(this.newTemplateScope), outputFolderId }
           };
-          this.newTemplateTipo = ''; this.newTemplateDocId = ''; this.newTemplateScope = 'student';
+          this.newTemplateTipo = ''; this.newTemplateDocId = ''; this.newTemplateOutputFolderId = ''; this.newTemplateScope = 'student';
           await this.previewTemplateFor(docId);
         },
         removeTemplateMapping(tipo) {
@@ -2697,6 +2714,11 @@
           if (!this.isAdmin) return;
           await this.runBusy('Guardando configuración documental...', async () => {
             try {
+              const tiposSinCarpeta = Object.keys(this.docSettings.templates || {}).filter((tipo) => !this.templateOutputFolderIdByTipo(tipo));
+              if (tiposSinCarpeta.length) {
+                this.showToast('error', `Falta carpeta de salida en: ${tiposSinCarpeta.join(', ')}`);
+                return;
+              }
               const centroFields = {};
               this.centroFieldDefs.forEach((f) => { centroFields[this.normalizePlaceholderKey(f.key)] = this.centroForm[f.key] || ''; });
               const otros = this.parseGlobalFieldsFromEditor(this.docSettingsGlobalText);
