@@ -1301,7 +1301,9 @@
           return p ? p.EmpresaId : '';
         },
         selectedTemplateScope() {
-          return this.templateScopeByTipo(this.genDocForm.tipo);
+          const scope = this.templateScopeByTipo(this.genDocForm.tipo);
+          if (scope === 'student' && this.isBulkStudentsDocTipo(this.genDocForm.tipo)) return 'group';
+          return scope;
         },
         documentStudentSelectorVisible() {
           if (this.selectedTemplateScope === 'company') return false;
@@ -1474,6 +1476,10 @@
         // (normalizePlaceholderKey_), para poder separar los campos "de centro" del resto.
         normalizePlaceholderKey(value) {
           return (value || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toUpperCase();
+        },
+        isBulkStudentsDocTipo(tipo) {
+          const key = this.normalizePlaceholderKey(tipo);
+          return key === 'RELACION_DE_ALUMNOS' || key === 'RELACION_DE_ALUMNOS_DAT' || key === 'RELACION_ALUMNOS_DAT';
         },
         normalizeTemplateScope(value) {
           const scope = (value || '').toString().toLowerCase();
@@ -2768,7 +2774,7 @@
               const payload = {
                 tipo: this.genDocForm.tipo,
                 studentId: this.genDocForm.studentId,
-                studentIds: this.selectedTemplateScope === 'company' ? this.genDocForm.studentIds : [],
+                studentIds: (this.selectedTemplateScope === 'company' || this.selectedTemplateScope === 'group') ? this.genDocForm.studentIds : [],
                 companyId: this.genDocForm.companyId,
                 periodoId: this.genDocForm.periodoId,
                 grupoAlumno: this.genDocForm.grupoAlumno,
