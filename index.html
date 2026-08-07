@@ -69,13 +69,15 @@
       </div>
 
       <!-- Aviso de resultado (exito/error) de la ultima accion realizada -->
-      <div v-if="toast.show" :class="toast.type === 'error' ? 'bg-red-950/95 border-red-700 text-red-100' : 'bg-emerald-950/95 border-emerald-700 text-emerald-100'"
-        class="fixed top-4 right-4 z-[100] max-w-sm border rounded-xl shadow-2xl p-4 text-sm">
+      <div v-if="toast.show" class="fixed inset-0 z-[100] bg-black/35 backdrop-blur-[1px] flex items-center justify-center p-4">
+      <div :class="toast.type === 'error' ? 'bg-red-950/95 border-red-700 text-red-100' : 'bg-emerald-950/95 border-emerald-700 text-emerald-100'"
+        class="w-full max-w-lg border rounded-xl shadow-2xl p-4 text-sm">
         <div class="flex items-start gap-2">
           <i :class="toast.type === 'error' ? 'ph ph-warning-circle text-red-300' : 'ph ph-check-circle text-emerald-300'" class="text-lg mt-0.5"></i>
           <div class="flex-1 whitespace-pre-line">{{ toast.message }}</div>
-          <button @click="toast.show = false" class="text-slate-400 hover:text-slate-200"><i class="ph ph-x"></i></button>
+          <button @click="toast.show = false" class="text-slate-200 hover:text-white px-3 py-1 rounded border border-slate-600 bg-slate-800/40">{{ (toast.sticky || toast.type === 'error') ? 'Aceptar' : 'Cerrar' }}</button>
         </div>
+      </div>
       </div>
 
       <header class="mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#070e1e]/90 p-5 rounded-2xl border border-slate-800 shadow-2xl">
@@ -219,6 +221,26 @@
             <button @click="applyBulkStudentEdit" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 font-bold">Aplicar a {{ selectedStudentIds.length }} alumno/s</button>
             <button v-if="isAdmin" @click="applyBulkStudentDelete" class="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold">Eliminar {{ selectedStudentIds.length }} alumno/s</button>
             <button @click="selectedStudentIds = []" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 font-bold">Quitar selección</button>
+
+            <div class="w-full mt-2 pt-2 border-t border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+              <div>
+                <span class="field-label">Módulos/RAs origen (alumno)</span>
+                <select v-model="bulkModulosSourceStudentId" @change="onBulkModulosSourceStudentChange" class="field">
+                  <option value="">Selecciona alumno origen</option>
+                  <option v-for="s in bulkModulosSourceCandidates" :key="s.id" :value="s.id">{{ s.Apellidos_Alumno }} {{ s.Nombre_Alumno }} · {{ s.Grupo_Alumno || '-' }}</option>
+                </select>
+              </div>
+              <div>
+                <span class="field-label">Periodo origen (opcional)</span>
+                <select v-model="bulkModulosSourcePeriodoId" class="field">
+                  <option value="">Primer periodo con módulos (o el primero)</option>
+                  <option v-for="(p, idx) in bulkModulosSourcePeriodos" :key="p.id" :value="p.id">Periodo {{ idx + 1 }}: {{ companyNameById(p.EmpresaId) }} ({{ p.Fecha_Inicio_Periodo || '?' }} - {{ p.Fecha_Fin_Periodo || '?' }})</option>
+                </select>
+              </div>
+              <div class="md:col-span-2">
+                <button @click="applyBulkModulosRas" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold w-full">Copiar módulos y RAs a todos los periodos de {{ selectedStudentIds.length }} alumno/s</button>
+              </div>
+            </div>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -623,7 +645,7 @@
                   <td class="p-2">
                     <div class="flex gap-1">
                       <a :href="d.url" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded bg-sky-900/40 border border-sky-700 text-sky-200">Abrir PDF</a>
-                      <button v-if="isAdmin" @click="removeDocument(d)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                      <button v-if="canDeleteDocument(d)" @click="removeDocument(d)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
                     </div>
                   </td>
                 </tr>
@@ -660,6 +682,13 @@
                 <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
               </select>
             </div>
+            <div v-if="documentGroupSelectorVisible">
+              <span class="field-label">Grupo</span>
+              <select v-model="genDocForm.grupoAlumno" @change="onGenDocGroupChange" class="field">
+                <option value="">Selecciona grupo</option>
+                <option v-for="g in genDocAvailableGroups" :key="g" :value="g">{{ g }}</option>
+              </select>
+            </div>
             <div v-if="documentPeriodoSelectorVisible">
               <span class="field-label">Periodo de FFE</span>
               <select v-model="genDocForm.periodoId" @change="onGenDocPeriodoChange" class="field">
@@ -675,7 +704,7 @@
               </select>
             </div>
           </div>
-          <div v-if="selectedTemplateScope === 'company'" class="mt-3 p-3 rounded-lg bg-[#040914] border border-slate-800">
+          <div v-if="selectedTemplateScope === 'company' || selectedTemplateScope === 'group'" class="mt-3 p-3 rounded-lg bg-[#040914] border border-slate-800">
             <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div class="font-bold text-xs text-slate-200">Alumnos/as que apareceran en la tabla</div>
               <div class="flex gap-2">
@@ -683,9 +712,10 @@
                 <button @click="clearCompanyDocStudents" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-[10px]">Quitar todos</button>
               </div>
             </div>
-            <p class="text-[11px] text-slate-400 mb-2">Selecciona el alumnado de esta empresa que quieres incluir en la relacion. Se insertara una fila por alumno/a.</p>
-            <div v-if="!genDocForm.companyId" class="text-xs text-amber-300">Selecciona antes la empresa para cargar su alumnado.</div>
-            <div v-else-if="genDocStudentsCandidates.length === 0" class="text-xs text-amber-300">No hay alumnado con periodos de FFE asignados a esta empresa.</div>
+            <p class="text-[11px] text-slate-400 mb-2">Selecciona el alumnado que quieres incluir en la relación. Por defecto aparecen todos los candidatos.</p>
+            <div v-if="selectedTemplateScope === 'company' && !genDocForm.companyId" class="text-xs text-amber-300">Selecciona antes la empresa para cargar su alumnado.</div>
+            <div v-else-if="documentGroupSelectorVisible && !genDocForm.grupoAlumno" class="text-xs text-amber-300">Selecciona antes el grupo para cargar su alumnado.</div>
+            <div v-else-if="genDocStudentsCandidates.length === 0" class="text-xs text-amber-300">No hay alumnado disponible con los filtros seleccionados (empresa/grupo).</div>
             <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
               <label v-for="s in genDocStudentsCandidates" :key="s.id" class="doc-check text-xs cursor-pointer">
                 <input type="checkbox" :value="s.id" v-model="genDocForm.studentIds" />
@@ -693,11 +723,22 @@
               </label>
             </div>
           </div>
-          <div v-if="documentTemplateRequirements.runtimeFields.length" class="mt-3 p-3 rounded-lg bg-amber-950/30 border border-amber-800/40 text-xs text-amber-100">
+          <div v-if="intervaloPlaceholdersVisible" class="mt-3 p-3 rounded-lg bg-sky-950/30 border border-sky-800/40 text-xs text-sky-100">
+            <div class="font-bold mb-2">Intervalo de formación</div>
+            <p class="mb-2 text-sky-200">Marca las opciones que deban aparecer con una X en el documento.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <label class="doc-check text-xs cursor-pointer"><input type="checkbox" v-model="genDocForm.intervalo.diario" /><span>Diario</span></label>
+              <label class="doc-check text-xs cursor-pointer"><input type="checkbox" v-model="genDocForm.intervalo.semanal" /><span>Semanal</span></label>
+              <label class="doc-check text-xs cursor-pointer"><input type="checkbox" v-model="genDocForm.intervalo.mensual" /><span>Mensual</span></label>
+              <label class="doc-check text-xs cursor-pointer"><input type="checkbox" v-model="genDocForm.intervalo.otros" /><span>Otros</span></label>
+              <label class="doc-check text-xs cursor-pointer md:col-span-2"><input type="checkbox" v-model="genDocForm.intervalo.variasEmpresas" /><span>Varias empresas</span></label>
+            </div>
+          </div>
+          <div v-if="documentRuntimeFieldsForManualInput.length" class="mt-3 p-3 rounded-lg bg-amber-950/30 border border-amber-800/40 text-xs text-amber-100">
             <div class="font-bold mb-2">Campos manuales obligatorios para este documento</div>
             <p class="mb-2 text-amber-200">Estos campos se piden en el momento de generar para que no queden vacios en el PDF.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div v-for="field in documentTemplateRequirements.runtimeFields" :key="field">
+              <div v-for="field in documentRuntimeFieldsForManualInput" :key="field">
                 <span class="field-label">&lt;{{ field }}&gt;</span>
                 <input v-model="genDocForm.manualFields[field]" class="field" :placeholder="`Valor para <${field}>`" />
               </div>
@@ -999,6 +1040,7 @@
               <select v-model="newTemplateScope" class="field sm:max-w-[170px]">
                 <option value="student">Documento de alumno/a</option>
                 <option value="company">Documento de empresa</option>
+                <option value="group">Documento de grupo</option>
               </select>
               <button @click="addTemplateMapping" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold whitespace-nowrap">Añadir tipo</button>
             </div>
@@ -1035,7 +1077,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzxY-wHSiSefLz6jBBwTa0EQ_CvznyGA4iA5vhBRBqfiN0FxJ2aMqyU-UKN6MA01qX-/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbyzG-kQPDX9kK8INBhYDDZVb-Rid-I_K7sFf_ylrBPTHsSihNyC8DXU1IiHceY5IyDm/exec';
                             
     const { createApp } = Vue;
 
@@ -1106,6 +1148,8 @@
           lastImportLog: null,
           bulkStudentField: '',
           bulkStudentValue: '',
+          bulkModulosSourceStudentId: '',
+          bulkModulosSourcePeriodoId: '',
           bulkStudentFieldDefs: [
             { key: 'Curso_Alumno', label: 'Curso', type: 'text' },
             { key: 'EstudioId', label: 'Ciclo formativo', type: 'estudio' },
@@ -1151,7 +1195,11 @@
 
           studentForm: {},
           companyForm: {},
-          genDocForm: { tipo: '', studentId: '', studentIds: [], companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '' }
+          genDocForm: {
+            tipo: '', studentId: '', studentIds: [], companyId: '', grupoAlumno: '', periodoId: '', tutorEmpresaId: '',
+            camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '',
+            intervalo: { diario: false, semanal: false, mensual: false, otros: false, variasEmpresas: false }
+          }
         };
       },
       computed: {
@@ -1182,6 +1230,18 @@
             const text = `${s.Nombre_Alumno||''} ${s.Apellidos_Alumno||''} ${s.Curso_Alumno||''} ${s.Grupo_Alumno||''} ${s.Familia_Profesional||''}`.toLowerCase();
             return text.includes(q);
           });
+        },
+        bulkModulosSourceCandidates() {
+          const selected = new Set(Array.isArray(this.selectedStudentIds) ? this.selectedStudentIds : []);
+          return this.students
+            .filter((s) => selected.has(s.id))
+            .slice()
+            .sort((a, b) => `${a.Apellidos_Alumno || ''} ${a.Nombre_Alumno || ''}`.localeCompare(`${b.Apellidos_Alumno || ''} ${b.Nombre_Alumno || ''}`));
+        },
+        bulkModulosSourcePeriodos() {
+          if (!this.bulkModulosSourceStudentId) return [];
+          const s = this.students.find((x) => x.id === this.bulkModulosSourceStudentId);
+          return s && Array.isArray(s.Periodos) ? s.Periodos : [];
         },
         filteredCompanies() {
           const q = (this.companyQuery || '').toLowerCase().trim();
@@ -1255,15 +1315,41 @@
           if (this.selectedTemplateScope === 'company') return false;
           return !!(this.documentTemplateRequirements.requiresPeriodo && this.genDocForm.studentId);
         },
-        genDocStudentsCandidates() {
-          if (!this.genDocForm.companyId) return [];
-          return this.students
-            .filter((s) => {
+        documentRuntimeFieldsForManualInput() {
+          const list = Array.isArray(this.documentTemplateRequirements.runtimeFields) ? this.documentTemplateRequirements.runtimeFields : [];
+          return list.filter((field) => !this.isIntervaloRuntimeField(field));
+        },
+        intervaloPlaceholdersVisible() {
+          const list = Array.isArray(this.documentTemplateRequirements.runtimeFields) ? this.documentTemplateRequirements.runtimeFields : [];
+          return list.some((field) => this.isIntervaloRuntimeField(field));
+        },
+        documentGroupSelectorVisible() {
+          return this.selectedTemplateScope === 'group' || (this.selectedTemplateScope === 'company' && this.genDocForm.tipo === 'RELACION_DE_ALUMNOS');
+        },
+        genDocAvailableGroups() {
+          let source = this.students.slice();
+          if (this.selectedTemplateScope === 'company' && this.genDocForm.companyId) {
+            source = source.filter((s) => {
               const periodos = Array.isArray(s.Periodos) ? s.Periodos : [];
               return periodos.some((p) => p.EmpresaId === this.genDocForm.companyId);
-            })
-            .slice()
-            .sort((a, b) => `${a.Apellidos_Alumno || ''} ${a.Nombre_Alumno || ''}`.localeCompare(`${b.Apellidos_Alumno || ''} ${b.Nombre_Alumno || ''}`));
+            });
+          }
+          const groups = source.map((s) => (s.Grupo_Alumno || '').trim()).filter((g) => !!g);
+          return Array.from(new Set(groups)).sort((a, b) => a.localeCompare(b));
+        },
+        genDocStudentsCandidates() {
+          let source = this.students.slice();
+          if (this.selectedTemplateScope === 'company') {
+            if (!this.genDocForm.companyId) return [];
+            source = source.filter((s) => {
+              const periodos = Array.isArray(s.Periodos) ? s.Periodos : [];
+              return periodos.some((p) => p.EmpresaId === this.genDocForm.companyId);
+            });
+          }
+          if (this.documentGroupSelectorVisible && this.genDocForm.grupoAlumno) {
+            source = source.filter((s) => (s.Grupo_Alumno || '') === this.genDocForm.grupoAlumno);
+          }
+          return source.slice().sort((a, b) => `${a.Apellidos_Alumno || ''} ${a.Nombre_Alumno || ''}`.localeCompare(`${b.Apellidos_Alumno || ''} ${b.Nombre_Alumno || ''}`));
         },
         allCalendarMonths() {
           let start = new Date(this.calendarioAdminForm.startDate || '');
@@ -1299,10 +1385,13 @@
       },
       methods: {
         normalizeEmail(value) { return (value || '').toString().trim().replace(/^"|"$/g, '').toLowerCase(); },
-        showToast(type, message, timeoutMs = 7000) {
+        showToast(type, message, timeoutMs = 7000, sticky) {
           if (this.toastTimer) { clearTimeout(this.toastTimer); this.toastTimer = null; }
-          this.toast = { show: true, type, message };
-          this.toastTimer = setTimeout(() => { this.toast.show = false; }, timeoutMs);
+          this.toast = { show: true, type, message, sticky: !!sticky };
+          const keepOpen = (sticky === true) || type === 'error';
+          if (!keepOpen) {
+            this.toastTimer = setTimeout(() => { this.toast.show = false; }, timeoutMs);
+          }
         },
         // Envuelve cualquier accion asincrona: muestra el overlay "Procesando..." mientras dura,
         // y garantiza que siempre se apague al terminar (con exito o con error).
@@ -1387,7 +1476,10 @@
           return (value || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toUpperCase();
         },
         normalizeTemplateScope(value) {
-          return (value || '').toString().toLowerCase() === 'company' ? 'company' : 'student';
+          const scope = (value || '').toString().toLowerCase();
+          if (scope === 'company') return 'company';
+          if (scope === 'group') return 'group';
+          return 'student';
         },
         normalizeTemplatesMap(input) {
           const source = (input && typeof input === 'object') ? input : {};
@@ -2352,6 +2444,38 @@
             }
           });
         },
+        onBulkModulosSourceStudentChange() {
+          this.bulkModulosSourcePeriodoId = '';
+        },
+        async applyBulkModulosRas() {
+          if (!this.selectedStudentIds.length) { this.showToast('error', 'Selecciona alumnado antes de copiar módulos y RAs.'); return; }
+          if (!this.bulkModulosSourceStudentId) { this.showToast('error', 'Selecciona el alumno origen para copiar módulos y RAs.'); return; }
+          await this.runBusy(`Copiando módulos/RAs a ${this.selectedStudentIds.length} alumno/s...`, async () => {
+            try {
+              const data = await this.postToServer('bulk_apply_modulos_ras', {
+                ids: this.selectedStudentIds,
+                sourceStudentId: this.bulkModulosSourceStudentId,
+                sourcePeriodoId: this.bulkModulosSourcePeriodoId
+              });
+              if (Array.isArray(data.students)) this.students = data.students;
+              const skipped = Number(data.skippedWithoutPeriods) || 0;
+              const msg = skipped
+                ? `Módulos/RAs copiados. Alumnos actualizados: ${data.updatedStudents}. Periodos actualizados: ${data.updatedPeriodos}. Sin periodos: ${skipped}.`
+                : `Módulos/RAs copiados. Alumnos actualizados: ${data.updatedStudents}. Periodos actualizados: ${data.updatedPeriodos}.`;
+              this.showToast('success', msg);
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              if (code === 'SOURCE_STUDENT_REQUIRED') { this.showToast('error', 'Debes indicar un alumno origen.'); return; }
+              if (code === 'SOURCE_STUDENT_NOT_FOUND') { this.showToast('error', 'El alumno origen ya no existe. Recarga los datos.'); return; }
+              if (code === 'SOURCE_STUDENT_WITHOUT_PERIODS') { this.showToast('error', 'El alumno origen no tiene periodos.'); return; }
+              if (code === 'SOURCE_PERIODO_NOT_FOUND') { this.showToast('error', 'El periodo origen seleccionado no existe.'); return; }
+              if (code === 'SOURCE_PERIODO_WITHOUT_MODULOS') { this.showToast('error', 'El periodo origen no tiene módulos/RAs para copiar.'); return; }
+              if (code === 'OWNERSHIP_REQUIRED') { this.showToast('error', 'No tienes permiso para aplicar la copia sobre alguno de los alumnos seleccionados.'); return; }
+              this.lastSyncError = `Fallo copiando módulos/RAs: ${code}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
         async applyBulkStudentDelete() {
           if (!this.isAdmin) return;
           if (!this.selectedStudentIds.length) return;
@@ -2432,7 +2556,18 @@
               this.startNewCompany(false);
               this.showToast('success', `Empresa "${data.company.Nombre_Empresa}" guardada correctamente.`);
             } catch (err) {
-              this.lastSyncError = `Fallo guardando empresa: ${err.message || 'ERROR'}`;
+              const code = (err && err.message) ? err.message : 'ERROR';
+              if ((code || '').indexOf('NIF_EMPRESA_DUPLICADO') === 0) {
+                this.lastSyncError = 'Ya existe otra empresa con el mismo NIF.';
+                this.showToast('error', this.lastSyncError);
+                return;
+              }
+              if ((code || '').indexOf('ID_CONVENIO_DUPLICADO') === 0) {
+                this.lastSyncError = 'Ya existe otra empresa con el mismo número de convenio.';
+                this.showToast('error', this.lastSyncError);
+                return;
+              }
+              this.lastSyncError = `Fallo guardando empresa: ${code}`;
               this.showToast('error', this.lastSyncError);
             }
           });
@@ -2475,8 +2610,37 @@
           required.forEach((field) => { next[field] = (current[field] || '').toString(); });
           this.genDocForm.manualFields = next;
         },
+        isIntervaloRuntimeField(field) {
+          const key = this.normalizePlaceholderKey(field);
+          return [
+            'INTERVALO_DIARIO_X',
+            'INTERVALO_SEMANAL_X',
+            'INTERVALO_MENSUAL_X',
+            'INTERVALO_OTROS_X',
+            'INTERVALO_VARIAS_EMPRESAS_X'
+          ].includes(key);
+        },
+        applyIntervaloFieldsToManualFields() {
+          const runtime = Array.isArray(this.documentTemplateRequirements.runtimeFields) ? this.documentTemplateRequirements.runtimeFields : [];
+          const hasIntervalFields = runtime.some((field) => this.isIntervaloRuntimeField(field));
+          if (!hasIntervalFields) return;
+          const intervalo = (this.genDocForm && this.genDocForm.intervalo) || {};
+          const map = {
+            INTERVALO_DIARIO_X: intervalo.diario,
+            INTERVALO_SEMANAL_X: intervalo.semanal,
+            INTERVALO_MENSUAL_X: intervalo.mensual,
+            INTERVALO_OTROS_X: intervalo.otros,
+            INTERVALO_VARIAS_EMPRESAS_X: intervalo.variasEmpresas
+          };
+          runtime.forEach((rawField) => {
+            const key = this.normalizePlaceholderKey(rawField);
+            if (Object.prototype.hasOwnProperty.call(map, key)) {
+              this.genDocForm.manualFields[rawField] = map[key] ? 'X' : '';
+            }
+          });
+        },
         syncCompanyDocStudentSelection() {
-          if (this.selectedTemplateScope !== 'company') {
+          if (this.selectedTemplateScope !== 'company' && this.selectedTemplateScope !== 'group') {
             this.genDocForm.studentIds = [];
             return;
           }
@@ -2509,10 +2673,21 @@
             normalized.requiresPeriodo = false;
             normalized.requiresTutorCentro = false;
           }
+          if (this.selectedTemplateScope === 'group') {
+            normalized.requiresCompany = false;
+            normalized.requiresStudent = false;
+            normalized.requiresPeriodo = false;
+            normalized.requiresTutorEmpresa = false;
+            normalized.requiresTutorCentro = false;
+          }
           return normalized;
         },
         openGenerateDocForm() {
-          this.genDocForm = { tipo: this.documentTiposDisponibles[0] || '', studentId: '', studentIds: [], companyId: '', periodoId: '', tutorEmpresaId: '', camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '' };
+          this.genDocForm = {
+            tipo: this.documentTiposDisponibles[0] || '', studentId: '', studentIds: [], companyId: '', grupoAlumno: '', periodoId: '', tutorEmpresaId: '',
+            camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '',
+            intervalo: { diario: false, semanal: false, mensual: false, otros: false, variasEmpresas: false }
+          };
           this.genDocFormOpen = true;
           this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
           if (this.genDocForm.tipo) this.onGenDocTipoChange();
@@ -2521,10 +2696,12 @@
           this.genDocForm.studentId = '';
           this.genDocForm.studentIds = [];
           this.genDocForm.companyId = '';
+          this.genDocForm.grupoAlumno = '';
           this.genDocForm.periodoId = '';
           this.genDocForm.tutorEmpresaId = '';
           this.genDocForm.pidiendoIdConvenio = false;
           this.genDocForm.idConvenioManual = '';
+          this.genDocForm.intervalo = { diario: false, semanal: false, mensual: false, otros: false, variasEmpresas: false };
           const templateDocId = this.templateDocIdByTipo(this.genDocForm.tipo);
           if (!templateDocId) {
             this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
@@ -2547,8 +2724,12 @@
         onGenDocStudentChange() { this.genDocForm.periodoId = ''; this.genDocForm.companyId = ''; this.genDocForm.tutorEmpresaId = ''; this.genDocForm.pidiendoIdConvenio = false; this.genDocForm.idConvenioManual = ''; },
         onGenDocCompanyChange() {
           this.genDocForm.tutorEmpresaId = '';
+          this.genDocForm.grupoAlumno = '';
           this.genDocForm.pidiendoIdConvenio = false;
           this.genDocForm.idConvenioManual = '';
+          this.syncCompanyDocStudentSelection();
+        },
+        onGenDocGroupChange() {
           this.syncCompanyDocStudentSelection();
         },
         onGenDocPeriodoChange() { this.genDocForm.tutorEmpresaId = ''; },
@@ -2560,6 +2741,11 @@
             this.showToast('error', 'Selecciona al menos un alumno/a para incluirlo en la relacion de empresa.');
             return;
           }
+          if (this.selectedTemplateScope === 'group' && (!Array.isArray(this.genDocForm.studentIds) || this.genDocForm.studentIds.length === 0)) {
+            this.showToast('error', 'Selecciona al menos un alumno/a para incluirlo en el documento de grupo.');
+            return;
+          }
+          this.applyIntervaloFieldsToManualFields();
           const runtimeMissing = (this.documentTemplateRequirements.runtimeFields || []).filter((field) => {
             const value = (this.genDocForm.manualFields && this.genDocForm.manualFields[field]) || '';
             return !value.toString().trim();
@@ -2585,6 +2771,7 @@
                 studentIds: this.selectedTemplateScope === 'company' ? this.genDocForm.studentIds : [],
                 companyId: this.genDocForm.companyId,
                 periodoId: this.genDocForm.periodoId,
+                grupoAlumno: this.genDocForm.grupoAlumno,
                 tutorEmpresaId: this.genDocForm.tutorEmpresaId,
                 idConvenio: this.genDocForm.idConvenioManual,
                 campos: { ...camposAdicionales, ...camposManuales }
@@ -2647,6 +2834,18 @@
                 this.showToast('error', 'La plantilla requiere tutor/a del centro y el alumno no lo tiene asignado.');
                 return;
               }
+              if (codigo === 'GROUP_REQUIRED') {
+                this.showToast('error', 'La plantilla requiere seleccionar un grupo.');
+                return;
+              }
+              if (codigo === 'GROUP_WITHOUT_STUDENTS') {
+                this.showToast('error', 'El grupo seleccionado no tiene alumnado disponible para este documento.');
+                return;
+              }
+              if (codigo === 'GROUP_STUDENTS_REQUIRED') {
+                this.showToast('error', 'Selecciona al menos un alumno/a para incluirlo en el documento de grupo.');
+                return;
+              }
               if (codigo === 'DOC_OUTPUT_FOLDER_REQUIRED_FOR_TYPE') {
                 this.showToast('error', 'Este tipo de documento no tiene carpeta de salida configurada. Ve a Admin y asigna una carpeta al tipo.');
                 return;
@@ -2657,7 +2856,7 @@
           });
         },
         async removeDocument(d) {
-          if (!this.isAdmin) return;
+          if (!this.canDeleteDocument(d)) return;
           if (!confirm('Eliminar este registro de documento? (el PDF en Drive no se borra)')) return;
           await this.runBusy('Eliminando documento...', async () => {
             try {
@@ -2665,10 +2864,22 @@
               this.documents = this.documents.filter((x) => x.id !== d.id);
               this.showToast('success', 'Documento eliminado del listado.');
             } catch (err) {
-              this.lastSyncError = `Fallo eliminando documento: ${err.message || 'ERROR'}`;
+              const code = (err && err.message) ? err.message : 'ERROR';
+              if (code === 'DOC_DELETE_CONVENIO_FORBIDDEN') {
+                this.lastSyncError = 'Los docentes no pueden eliminar convenios.';
+                this.showToast('error', this.lastSyncError);
+                return;
+              }
+              this.lastSyncError = `Fallo eliminando documento: ${code}`;
               this.showToast('error', this.lastSyncError);
             }
           });
+        },
+        canDeleteDocument(d) {
+          if (!d) return false;
+          const tipo = ((d.Tipo_Documento || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').toUpperCase());
+          if (this.isAdmin) return true;
+          return (d.generatedBy || '') === this.currentUserEmail && tipo.indexOf('CONVENIO') < 0;
         },
 
         // ---------- ADMIN ----------
