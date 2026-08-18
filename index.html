@@ -704,7 +704,7 @@
               </select>
             </div>
           </div>
-          <div v-if="selectedTemplateScope === 'company' || selectedTemplateScope === 'group'" class="mt-3 p-3 rounded-lg bg-[#040914] border border-slate-800">
+          <div v-if="documentStudentsSelectionVisible" class="mt-3 p-3 rounded-lg bg-[#040914] border border-slate-800">
             <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div class="font-bold text-xs text-slate-200">Alumnos/as que apareceran en la tabla</div>
               <div class="flex gap-2">
@@ -739,25 +739,15 @@
             <p class="mb-2 text-amber-200">Estos campos se piden en el momento de generar para que no queden vacios en el PDF.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div v-for="field in documentRuntimeFieldsForManualInput" :key="field">
-                <span class="field-label">&lt;{{ field }}&gt;</span>
-                <input v-model="genDocForm.manualFields[field]" class="field" :placeholder="`Valor para <${field}>`" />
+                <span class="field-label">{{ field }}</span>
+                <input v-model="genDocForm.manualFields[field]" class="field" :placeholder="`Valor para ${field}`" />
               </div>
-            </div>
-          </div>
-          <div v-if="documentTemplateRequirements.unresolvedFields.length" class="mt-3 p-3 rounded-lg bg-red-950/30 border border-red-800/40 text-xs text-red-100">
-            <div class="font-bold mb-1">Campos no reconocidos por el sistema</div>
-            <div class="flex flex-wrap gap-2">
-              <span v-for="field in documentTemplateRequirements.unresolvedFields" :key="field" class="px-2 py-1 rounded bg-red-900/40 border border-red-700">&lt;{{ field }}&gt;</span>
             </div>
           </div>
           <div v-if="genDocForm.pidiendoIdConvenio" class="mt-3 p-3 rounded-lg bg-amber-950/30 border border-amber-800/40">
             <span class="field-label">Nº de convenio de la empresa (obligatorio para este documento, formato 001CM)</span>
             <input v-model="genDocForm.idConvenioManual" placeholder="001CM" class="field" />
             <p class="text-[10px] text-amber-300 mt-1">Se guardara en la ficha de la empresa para que no vuelva a pedirse.</p>
-          </div>
-          <div class="mt-3">
-            <span class="field-label">Campos adicionales de este documento (uno por linea, CLAVE=valor)</span>
-            <textarea v-model="genDocForm.camposText" class="field min-h-[100px]" placeholder="FECHA_FIRMA=25/07/2026&#10;LUGAR_FIRMA=Badajoz"></textarea>
           </div>
           <div class="mt-3 flex gap-2">
             <button @click="generateDocumentPdf" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Generar PDF</button>
@@ -1077,7 +1067,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbymhpDAD6S85wBBSLKWST5XK73w3u98RrVOSXyYOFs171382--8k4Cj1WFEKbg7Kuhf/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbwqAvSDYvSy2ysCOPNMLTInzlhl5Y-3yRZ88oOhyX-7wfv6wgcBHxp0NNcNzOmrzl7W/exec';
                             
     const { createApp } = Vue;
 
@@ -1197,7 +1187,7 @@
           companyForm: {},
           genDocForm: {
             tipo: '', studentId: '', studentIds: [], companyId: '', grupoAlumno: '', periodoId: '', tutorEmpresaId: '',
-            camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '',
+            manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '',
             intervalo: { diario: false, semanal: false, mensual: false, otros: false, variasEmpresas: false }
           }
         };
@@ -1220,8 +1210,7 @@
           return this.students.filter((s) => (s.CursoAcademicoId || '') === this.selectedCursoAcademicoId);
         },
         companiesDelCurso() {
-          if (!this.selectedCursoAcademicoId) return this.companies;
-          return this.companies.filter((c) => (c.CursoAcademicoId || '') === this.selectedCursoAcademicoId);
+          return this.companies;
         },
         filteredStudents() {
           const q = (this.studentQuery || '').toLowerCase().trim();
@@ -1301,11 +1290,13 @@
           return p ? p.EmpresaId : '';
         },
         selectedTemplateScope() {
+          if (this.isConvenioDocTipo(this.genDocForm.tipo)) return 'company';
           const scope = this.templateScopeByTipo(this.genDocForm.tipo);
           if (scope === 'student' && this.isBulkStudentsDocTipo(this.genDocForm.tipo)) return 'group';
           return scope;
         },
         documentStudentSelectorVisible() {
+          if (this.isConvenioDocTipo(this.genDocForm.tipo)) return false;
           if (this.selectedTemplateScope === 'company') return false;
           return !!this.documentTemplateRequirements.requiresStudent;
         },
@@ -1318,7 +1309,9 @@
           return !!(this.documentTemplateRequirements.requiresPeriodo && this.genDocForm.studentId);
         },
         documentRuntimeFieldsForManualInput() {
-          const list = Array.isArray(this.documentTemplateRequirements.runtimeFields) ? this.documentTemplateRequirements.runtimeFields : [];
+          const runtime = Array.isArray(this.documentTemplateRequirements.runtimeFields) ? this.documentTemplateRequirements.runtimeFields : [];
+          const unresolved = Array.isArray(this.documentTemplateRequirements.unresolvedFields) ? this.documentTemplateRequirements.unresolvedFields : [];
+          const list = Array.from(new Set(runtime.concat(unresolved)));
           return list.filter((field) => !this.isIntervaloRuntimeField(field));
         },
         intervaloPlaceholdersVisible() {
@@ -1327,6 +1320,10 @@
         },
         documentGroupSelectorVisible() {
           return this.selectedTemplateScope === 'group' || (this.selectedTemplateScope === 'company' && this.genDocForm.tipo === 'RELACION_DE_ALUMNOS');
+        },
+        documentStudentsSelectionVisible() {
+          if (this.isConvenioDocTipo(this.genDocForm.tipo)) return false;
+          return this.selectedTemplateScope === 'company' || this.selectedTemplateScope === 'group';
         },
         genDocAvailableGroups() {
           let source = this.students.slice();
@@ -1480,6 +1477,15 @@
         isBulkStudentsDocTipo(tipo) {
           const key = this.normalizePlaceholderKey(tipo);
           return key === 'RELACION_DE_ALUMNOS' || key === 'RELACION_DE_ALUMNOS_DAT' || key === 'RELACION_ALUMNOS_DAT';
+        },
+        isConvenioDocTipo(tipo) {
+          const key = this.normalizePlaceholderKey(tipo);
+          return key.indexOf('CONVENIO') >= 0;
+        },
+        getRequiredManualFields() {
+          const runtime = Array.isArray(this.documentTemplateRequirements.runtimeFields) ? this.documentTemplateRequirements.runtimeFields : [];
+          const unresolved = Array.isArray(this.documentTemplateRequirements.unresolvedFields) ? this.documentTemplateRequirements.unresolvedFields : [];
+          return Array.from(new Set(runtime.concat(unresolved)));
         },
         normalizeTemplateScope(value) {
           const scope = (value || '').toString().toLowerCase();
@@ -2609,9 +2615,7 @@
           const current = (this.genDocForm && this.genDocForm.manualFields && typeof this.genDocForm.manualFields === 'object')
             ? this.genDocForm.manualFields
             : {};
-          const required = Array.isArray(this.documentTemplateRequirements.runtimeFields)
-            ? this.documentTemplateRequirements.runtimeFields
-            : [];
+          const required = this.getRequiredManualFields();
           const next = {};
           required.forEach((field) => { next[field] = (current[field] || '').toString(); });
           this.genDocForm.manualFields = next;
@@ -2646,7 +2650,7 @@
           });
         },
         syncCompanyDocStudentSelection() {
-          if (this.selectedTemplateScope !== 'company' && this.selectedTemplateScope !== 'group') {
+          if (!this.documentStudentsSelectionVisible) {
             this.genDocForm.studentIds = [];
             return;
           }
@@ -2691,7 +2695,7 @@
         openGenerateDocForm() {
           this.genDocForm = {
             tipo: this.documentTiposDisponibles[0] || '', studentId: '', studentIds: [], companyId: '', grupoAlumno: '', periodoId: '', tutorEmpresaId: '',
-            camposText: '', manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '',
+            manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '',
             intervalo: { diario: false, semanal: false, mensual: false, otros: false, variasEmpresas: false }
           };
           this.genDocFormOpen = true;
@@ -2743,7 +2747,7 @@
           if (!this.genDocForm.tipo) { this.showToast('error', 'Selecciona un tipo de documento.'); return; }
           if (this.documentTemplateRequirements.requiresStudent && !this.genDocForm.studentId) { this.showToast('error', 'Selecciona un alumno/a.'); return; }
           if (this.documentCompanySelectorVisible && !this.genDocForm.companyId) { this.showToast('error', 'Selecciona una empresa.'); return; }
-          if (this.selectedTemplateScope === 'company' && (!Array.isArray(this.genDocForm.studentIds) || this.genDocForm.studentIds.length === 0)) {
+          if (this.selectedTemplateScope === 'company' && !this.isConvenioDocTipo(this.genDocForm.tipo) && (!Array.isArray(this.genDocForm.studentIds) || this.genDocForm.studentIds.length === 0)) {
             this.showToast('error', 'Selecciona al menos un alumno/a para incluirlo en la relacion de empresa.');
             return;
           }
@@ -2752,12 +2756,12 @@
             return;
           }
           this.applyIntervaloFieldsToManualFields();
-          const runtimeMissing = (this.documentTemplateRequirements.runtimeFields || []).filter((field) => {
+          const runtimeMissing = this.getRequiredManualFields().filter((field) => {
             const value = (this.genDocForm.manualFields && this.genDocForm.manualFields[field]) || '';
             return !value.toString().trim();
           });
           if (runtimeMissing.length) {
-            this.showToast('error', `Completa los campos manuales obligatorios antes de generar: ${runtimeMissing.map((x) => `<${x}>`).join(', ')}`);
+            this.showToast('error', `Completa los campos manuales obligatorios antes de generar: ${runtimeMissing.join(', ')}`);
             return;
           }
           if (this.genDocForm.pidiendoIdConvenio && !this.genDocForm.idConvenioManual) {
@@ -2766,9 +2770,8 @@
           this.lastSyncError = '';
           await this.runBusy('Generando documento PDF...', async () => {
             try {
-              const camposAdicionales = this.parseGlobalFieldsFromEditor(this.genDocForm.camposText);
               const camposManuales = {};
-              (this.documentTemplateRequirements.runtimeFields || []).forEach((field) => {
+              this.getRequiredManualFields().forEach((field) => {
                 camposManuales[field] = ((this.genDocForm.manualFields && this.genDocForm.manualFields[field]) || '').toString().trim();
               });
               const payload = {
@@ -2780,7 +2783,7 @@
                 grupoAlumno: this.genDocForm.grupoAlumno,
                 tutorEmpresaId: this.genDocForm.tutorEmpresaId,
                 idConvenio: this.genDocForm.idConvenioManual,
-                campos: { ...camposAdicionales, ...camposManuales }
+                campos: camposManuales
               };
               const data = await this.postToServer('generate_document_pdf', payload);
               if (data && data.document) this.documents.push(data.document);
@@ -2796,7 +2799,7 @@
               if (codigo.startsWith('RUNTIME_FIELDS_REQUIRED|')) {
                 const faltan = codigo.split('|')[1] || '';
                 const campos = faltan.split(',').map((x) => x.trim()).filter((x) => !!x);
-                this.showToast('error', `Faltan campos manuales obligatorios para la plantilla: ${campos.map((x) => `<${x}>`).join(', ')}`);
+                this.showToast('error', `Faltan campos manuales obligatorios para la plantilla: ${campos.join(', ')}`);
                 return;
               }
               if (codigo === 'ID_CONVENIO_REQUIRED') {
