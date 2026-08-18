@@ -1067,7 +1067,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbwqAvSDYvSy2ysCOPNMLTInzlhl5Y-3yRZ88oOhyX-7wfv6wgcBHxp0NNcNzOmrzl7W/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzlphyW15-Q6I8tG2Zh-u9VAsTDw_70cX4xyvHuCebirrXGu60UeicARJyIFKd-af7C/exec';
                             
     const { createApp } = Vue;
 
@@ -1319,7 +1319,7 @@
           return list.some((field) => this.isIntervaloRuntimeField(field));
         },
         documentGroupSelectorVisible() {
-          return this.selectedTemplateScope === 'group' || (this.selectedTemplateScope === 'company' && this.genDocForm.tipo === 'RELACION_DE_ALUMNOS');
+          return this.selectedTemplateScope === 'group' || (this.selectedTemplateScope === 'company' && this.isBulkStudentsDocTipo(this.genDocForm.tipo));
         },
         documentStudentsSelectionVisible() {
           if (this.isConvenioDocTipo(this.genDocForm.tipo)) return false;
@@ -1476,7 +1476,8 @@
         },
         isBulkStudentsDocTipo(tipo) {
           const key = this.normalizePlaceholderKey(tipo);
-          return key === 'RELACION_DE_ALUMNOS' || key === 'RELACION_DE_ALUMNOS_DAT' || key === 'RELACION_ALUMNOS_DAT';
+          if (key === 'RELACION_DE_ALUMNOS' || key === 'RELACION_DE_ALUMNOS_DAT' || key === 'RELACION_ALUMNOS_DAT') return true;
+          return key.indexOf('RELACION') >= 0 && key.indexOf('ALUMNOS') >= 0 && key.indexOf('DAT') >= 0;
         },
         isConvenioDocTipo(tipo) {
           const key = this.normalizePlaceholderKey(tipo);
@@ -2745,7 +2746,7 @@
         onGenDocPeriodoChange() { this.genDocForm.tutorEmpresaId = ''; },
         async generateDocumentPdf() {
           if (!this.genDocForm.tipo) { this.showToast('error', 'Selecciona un tipo de documento.'); return; }
-          if (this.documentTemplateRequirements.requiresStudent && !this.genDocForm.studentId) { this.showToast('error', 'Selecciona un alumno/a.'); return; }
+          if (this.selectedTemplateScope !== 'group' && this.documentTemplateRequirements.requiresStudent && !this.genDocForm.studentId) { this.showToast('error', 'Selecciona un alumno/a.'); return; }
           if (this.documentCompanySelectorVisible && !this.genDocForm.companyId) { this.showToast('error', 'Selecciona una empresa.'); return; }
           if (this.selectedTemplateScope === 'company' && !this.isConvenioDocTipo(this.genDocForm.tipo) && (!Array.isArray(this.genDocForm.studentIds) || this.genDocForm.studentIds.length === 0)) {
             this.showToast('error', 'Selecciona al menos un alumno/a para incluirlo en la relacion de empresa.');
