@@ -1014,7 +1014,9 @@
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mb-3">
             <input v-model="docSettingsForm.outputFolderId" placeholder="ID o enlace de la carpeta de Drive donde guardar los PDF" class="field" />
+            <input v-model="docSettingsForm.fileNamePattern" placeholder="Patrón nombre salida (ej. <TIPO_DOCUMENTO>_<NOMBRE_EMPRESA>_<APELLIDOS_ALUMNO>_<FECHA_HORA_GENERACION>)" class="field" />
           </div>
+          <p class="text-[11px] text-slate-400 mb-3">Puedes usar placeholders entre &lt;...&gt; como &lt;TIPO_DOCUMENTO&gt;, &lt;NOMBRE_EMPRESA&gt;, &lt;NOMBRE_ALUMNO&gt;, &lt;APELLIDOS_ALUMNO&gt;, &lt;GRUPO_ALUMNO&gt;, &lt;ID_CONVENIO&gt;, &lt;FECHA_GENERACION&gt; y &lt;FECHA_HORA_GENERACION&gt;.</p>
 
           <label class="text-xs text-slate-300 font-semibold mb-1 block">Otros campos globales (uno por linea, formato CLAVE=valor)</label>
           <textarea v-model="docSettingsGlobalText" class="field min-h-[100px]" placeholder="CURSO_ESCOLAR=2026-2027&#10;OTRO_CAMPO=valor"></textarea>
@@ -1067,7 +1069,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbz04HjkncqJu5nfkp1r-Rm5hP34EGpcf6lWa8HexAttMURYHo8Ot60XS4dZaogEGXeS/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbxl7A4U_gfJmG0JWP_XZZj-Bq9HpWeYslTi8cUZTDchywKa0B5zEmxRBivWQIyxVTuu/exec';
                             
     const { createApp } = Vue;
 
@@ -1091,8 +1093,8 @@
           isAdmin: false,
           accessControl: { adminEmails: [], allowedEmails: [] },
           newAllowedEmail: '',
-          docSettings: { outputFolderId: '', globalFields: {}, templates: {} },
-          docSettingsForm: { outputFolderId: '' },
+          docSettings: { outputFolderId: '', fileNamePattern: '', globalFields: {}, templates: {} },
+          docSettingsForm: { outputFolderId: '', fileNamePattern: '' },
           docSettingsGlobalText: '',
           newTemplateTipo: '',
           newTemplateDocId: '',
@@ -1541,10 +1543,12 @@
           const s = settings && typeof settings === 'object' ? settings : {};
           this.docSettings = {
             outputFolderId: s.outputFolderId || '',
+            fileNamePattern: (s.fileNamePattern || '').toString(),
             globalFields: (s.globalFields && typeof s.globalFields === 'object') ? s.globalFields : {},
             templates: this.normalizeTemplatesMap(s.templates)
           };
           this.docSettingsForm.outputFolderId = this.docSettings.outputFolderId;
+          this.docSettingsForm.fileNamePattern = this.docSettings.fileNamePattern;
 
           const centroKeys = this.centroFieldDefs.map((f) => this.normalizePlaceholderKey(f.key));
           const centroForm = {};
@@ -2945,6 +2949,7 @@
               const otros = this.parseGlobalFieldsFromEditor(this.docSettingsGlobalText);
               const payload = {
                 outputFolderId: this.docSettingsForm.outputFolderId,
+                fileNamePattern: this.docSettingsForm.fileNamePattern,
                 globalFields: { ...otros, ...centroFields },
                 templates: this.normalizeTemplatesMap(this.docSettings.templates)
               };
