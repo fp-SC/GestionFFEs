@@ -294,7 +294,7 @@
           </div>
         </div>
 
-        <div v-if="studentFormOpen" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+        <div v-if="studentFormOpen" ref="studentFormSection" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <h3 class="font-bold mb-3">{{ studentForm.id ? 'Editar alumno/a' : 'Nuevo alumno/a' }}</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
             <div><span class="field-label">Nombre</span><input v-model="studentForm.Nombre_Alumno" class="field" /></div>
@@ -581,7 +581,7 @@
           </div>
         </div>
 
-        <div v-if="companyFormOpen" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+        <div v-if="companyFormOpen" ref="companyFormSection" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <h3 class="font-bold mb-3">{{ companyForm.id ? 'Editar empresa' : 'Nueva empresa' }}</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
             <div><span class="field-label">Nombre de la empresa</span><input v-model="companyForm.Nombre_Empresa" class="field" /></div>
@@ -671,7 +671,7 @@
           </div>
         </div>
 
-        <div v-if="genDocFormOpen" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+        <div v-if="genDocFormOpen" ref="genDocFormSection" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <h3 class="font-bold mb-3">Generar documento PDF</h3>
           <div v-if="documentTiposDisponibles.length === 0" class="text-xs text-amber-300 bg-amber-950/30 border border-amber-800/40 rounded-lg p-3 mb-3">
             Todavía no hay ninguna plantilla configurada. Ve a Admin y asocia un tipo de documento (por ejemplo CONVENIO) a una plantilla de Google Docs.
@@ -832,7 +832,7 @@
             </table>
           </div>
 
-          <div v-if="tutorCentroFormOpen" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
+          <div v-if="tutorCentroFormOpen" ref="tutorCentroFormSection" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
             <div><span class="field-label">Nombre</span><input v-model="tutorCentroForm.Nombre_Tutor_Centro" class="field" /></div>
             <div><span class="field-label">Apellidos</span><input v-model="tutorCentroForm.Apellidos_Tutor_Centro" class="field" /></div>
             <div><span class="field-label">DNI</span><input v-model="tutorCentroForm.DNI_Tutor_Centro" class="field" /></div>
@@ -878,7 +878,7 @@
             </table>
           </div>
 
-          <div v-if="cursoAcademicoFormOpen" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
+          <div v-if="cursoAcademicoFormOpen" ref="cursoAcademicoFormSection" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
             <div>
               <span class="field-label">Nombre del curso (ej. 2026-2027)</span>
               <input v-model="cursoAcademicoForm.Nombre_Curso" class="field" />
@@ -937,7 +937,7 @@
             </table>
           </div>
 
-          <div v-if="estudioFormOpen" class="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
+          <div v-if="estudioFormOpen" ref="estudioFormSection" class="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3">
             <div><span class="field-label">Código (ej. SAN201)</span><input v-model="estudioForm.Codigo_Estudio" class="field" /></div>
             <div><span class="field-label">Nombre completo</span><input v-model="estudioForm.Nombre_Estudio" class="field" /></div>
             <div>
@@ -1039,7 +1039,7 @@
             <h4 class="text-sm font-bold text-slate-200 mb-2">Tipos de documento y plantillas</h4>
             <p class="text-xs text-slate-400 mb-3">Cada tipo usa su propia plantilla, su carpeta de salida y su patrón de nombre. Puedes usar placeholders entre &lt;...&gt; como &lt;TIPO_DOCUMENTO&gt;, &lt;NOMBRE_EMPRESA&gt;, &lt;NOMBRE_ALUMNO&gt;, &lt;APELLIDOS_ALUMNO&gt;, &lt;GRUPO_ALUMNO&gt;, &lt;ID_CONVENIO&gt;, &lt;FECHA_GENERACION&gt; y &lt;FECHA_HORA_GENERACION&gt;.</p>
 
-            <div class="grid grid-cols-1 xl:grid-cols-5 gap-2 mb-3">
+            <div ref="templateMappingFormSection" class="grid grid-cols-1 xl:grid-cols-5 gap-2 mb-3">
               <input v-model="newTemplateTipo" placeholder="Tipo (ej. CONVENIO, ANEXO_I, SEGUIMIENTO_8)" class="field" />
               <input v-model="newTemplateDocId" placeholder="ID o enlace de la plantilla Google Docs" class="field" />
               <input v-model="newTemplateOutputFolderId" placeholder="ID o enlace de la carpeta de salida para este tipo" class="field" />
@@ -1425,6 +1425,14 @@
           } finally {
             this.busy = { active: false, label: '' };
           }
+        },
+        scrollToRef(refName) {
+          this.$nextTick(() => {
+            const el = this.$refs[refName];
+            if (el && typeof el.scrollIntoView === 'function') {
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          });
         },
         normalizeCsvHeader(value) {
           return (value || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
@@ -1983,10 +1991,12 @@
         startNewTutorCentro() {
           this.tutorCentroForm = { id: '', Nombre_Tutor_Centro: '', Apellidos_Tutor_Centro: '', DNI_Tutor_Centro: '', Email_Tutor_Centro: '' };
           this.tutorCentroFormOpen = true;
+          this.scrollToRef('tutorCentroFormSection');
         },
         editTutorCentro(t) {
           this.tutorCentroForm = JSON.parse(JSON.stringify(t || {}));
           this.tutorCentroFormOpen = true;
+          this.scrollToRef('tutorCentroFormSection');
         },
         async saveTutorCentro() {
           if (!this.tutorCentroForm.Nombre_Tutor_Centro || !this.tutorCentroForm.Apellidos_Tutor_Centro) {
@@ -2024,10 +2034,12 @@
         startNewCursoAcademico() {
           this.cursoAcademicoForm = { id: '', Nombre_Curso: '', cloneFromId: '', marcarActivo: false };
           this.cursoAcademicoFormOpen = true;
+          this.scrollToRef('cursoAcademicoFormSection');
         },
         editCursoAcademico(c) {
           this.cursoAcademicoForm = { id: c.id, Nombre_Curso: c.Nombre_Curso, cloneFromId: '', marcarActivo: false };
           this.cursoAcademicoFormOpen = true;
+          this.scrollToRef('cursoAcademicoFormSection');
         },
         async saveCursoAcademico() {
           if (!this.cursoAcademicoForm.Nombre_Curso) { this.showToast('error', 'Indica un nombre para el curso académico.'); return; }
@@ -2062,10 +2074,12 @@
         startNewEstudio() {
           this.estudioForm = { id: '', Codigo_Estudio: '', Nombre_Estudio: '', Grado_Estudio: '', Regimen_Estudio: 'General' };
           this.estudioFormOpen = true;
+          this.scrollToRef('estudioFormSection');
         },
         editEstudio(e) {
           this.estudioForm = JSON.parse(JSON.stringify(e || {}));
           this.estudioFormOpen = true;
+          this.scrollToRef('estudioFormSection');
         },
         async saveEstudio() {
           if (!this.estudioForm.Codigo_Estudio || !this.estudioForm.Nombre_Estudio) {
@@ -2237,6 +2251,7 @@
             Tiene_Autorizacion_Extraordinaria: false, Autorizacion_Extraordinaria_Causas: '',
             Observaciones_Alumno: ''
           };
+          if (openForm) this.scrollToRef('studentFormSection');
         },
         // Recalcula Grupo_Alumno = Curso_Alumno + '-' + Codigo_Estudio cada vez que cambia
         // el curso o el ciclo formativo seleccionado; se puede seguir editando a mano despues.
@@ -2445,7 +2460,12 @@
           return { updatedStudents, updatedPeriodos, createdPeriodos };
         },
 
-        editStudent(s) { this.studentForm = { ...this.studentForm, ...JSON.parse(JSON.stringify(s || {})) }; this.studentFormOpen = true; this.activeTab = 'students'; },
+        editStudent(s) {
+          this.studentForm = { ...this.studentForm, ...JSON.parse(JSON.stringify(s || {})) };
+          this.studentFormOpen = true;
+          this.activeTab = 'students';
+          this.scrollToRef('studentFormSection');
+        },
         cancelStudentForm() { this.startNewStudent(false); },
         async saveStudent() {
           this.lastSyncError = '';
@@ -2681,12 +2701,15 @@
             Calle_Empresa: '', Localidad_Empresa: '', Provincia_Empresa: '', Pais_Empresa: '', CP_Empresa: '',
             Nombre_Representante_Empresa: '', Cargo_Representante_Empresa: '', TutoresEmpresa: [], Observaciones_Empresa: '', CursoAcademicoId: this.effectiveCursoAcademicoId, ID_Convenio: ''
           };
+          if (openForm) this.scrollToRef('companyFormSection');
         },
         editCompany(c) {
           const copy = JSON.parse(JSON.stringify(c || {}));
           if (!Array.isArray(copy.TutoresEmpresa)) copy.TutoresEmpresa = [];
           this.companyForm = { ...this.companyForm, ...copy };
-          this.companyFormOpen = true; this.activeTab = 'companies';
+          this.companyFormOpen = true;
+          this.activeTab = 'companies';
+          this.scrollToRef('companyFormSection');
         },
         cancelCompanyForm() { this.startNewCompany(false); },
         addTutorEmpresa() {
@@ -2826,7 +2849,7 @@
           }
           return normalized;
         },
-        openGenerateDocForm() {
+        async openGenerateDocForm() {
           this.genDocForm = {
             tipo: this.documentTiposDisponibles[0] || '', studentId: '', studentIds: [], companyId: '', grupoAlumno: '', periodoId: '', tutorEmpresaId: '',
             manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '',
@@ -2834,7 +2857,8 @@
           };
           this.genDocFormOpen = true;
           this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
-          if (this.genDocForm.tipo) this.onGenDocTipoChange();
+          this.scrollToRef('genDocFormSection');
+          if (this.genDocForm.tipo) await this.onGenDocTipoChange();
         },
         async onGenDocTipoChange() {
           this.genDocForm.studentId = '';
@@ -2845,25 +2869,29 @@
           this.genDocForm.tutorEmpresaId = '';
           this.genDocForm.pidiendoIdConvenio = false;
           this.genDocForm.idConvenioManual = '';
+          this.genDocForm.manualFields = {};
           this.genDocForm.intervalo = { diario: false, semanal: false, mensual: false, otros: false, variasEmpresas: false };
+          this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
+          this.syncGenDocManualFields();
+          this.syncCompanyDocStudentSelection();
+
           const templateDocId = this.templateDocIdByTipo(this.genDocForm.tipo);
           if (!templateDocId) {
-            this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
-            this.syncGenDocManualFields();
-            this.syncCompanyDocStudentSelection();
             return;
           }
-          try {
-            const data = await this.postToServer('preview_template_placeholders', { templateDocId });
-            this.documentTemplateRequirements = this.normalizeTemplateRequirementsForSelectedScope(data.templateRequirements || this.documentTemplateRequirements);
-            this.syncGenDocManualFields();
-            this.syncCompanyDocStudentSelection();
-          } catch (err) {
-            this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
-            this.syncGenDocManualFields();
-            this.syncCompanyDocStudentSelection();
-            this.showToast('error', `No se pudo analizar la plantilla del documento: ${err.message || 'ERROR'}`);
-          }
+          await this.runBusy('Cargando campos de la plantilla...', async () => {
+            try {
+              const data = await this.postToServer('preview_template_placeholders', { templateDocId });
+              this.documentTemplateRequirements = this.normalizeTemplateRequirementsForSelectedScope(data.templateRequirements || this.documentTemplateRequirements);
+              this.syncGenDocManualFields();
+              this.syncCompanyDocStudentSelection();
+            } catch (err) {
+              this.documentTemplateRequirements = { requiresStudent: false, requiresCompany: false, requiresPeriodo: false, requiresTutorEmpresa: false, requiresTutorCentro: false, runtimeFields: [], unresolvedFields: [] };
+              this.syncGenDocManualFields();
+              this.syncCompanyDocStudentSelection();
+              this.showToast('error', `No se pudo analizar la plantilla del documento: ${err.message || 'ERROR'}`);
+            }
+          });
         },
         onGenDocStudentChange() { this.genDocForm.periodoId = ''; this.genDocForm.companyId = ''; this.genDocForm.tutorEmpresaId = ''; this.genDocForm.pidiendoIdConvenio = false; this.genDocForm.idConvenioManual = ''; },
         onGenDocCompanyChange() {
@@ -3069,6 +3097,7 @@
           this.newTemplateOutputFolderId = cfg.outputFolderId || '';
           this.newTemplateFileNamePattern = cfg.fileNamePattern || '';
           this.newTemplateScope = this.normalizeTemplateScope(cfg.scope);
+          this.scrollToRef('templateMappingFormSection');
         },
         cancelTemplateEdit() {
           this.editingTemplateOriginalTipo = '';
