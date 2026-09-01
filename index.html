@@ -26,6 +26,11 @@
       background: #0b1730; color: rgb(241 245 249); padding: .5rem .75rem; outline: none;
     }
     .field:focus { border-color: rgb(96 165 250); box-shadow: 0 0 0 2px rgba(96,165,250,.28); }
+    input[type="time"]::-webkit-calendar-picker-indicator,
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      cursor: pointer;
+    }
     .field-label { display:block; font-size: 10px; font-weight: 700; color: rgb(186 200 219); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .03em; }
     .doc-check { display:flex; align-items:center; gap:.35rem; background:#0b1730; border:1px solid rgb(71 85 105); border-radius:.5rem; padding:.5rem; color: rgb(226 232 240); }
   </style>
@@ -451,12 +456,14 @@
               </div>
 
               <div v-if="periodo.Dias_Periodo.length" class="mb-3">
-                <div class="flex items-center justify-between mb-1">
+                <div class="mb-2">
                   <span class="field-label">Horario por dia</span>
-                  <button @click="aplicarHorarioATodos(periodo)" class="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 font-semibold transition">
-                    <i class="ph ph-copy"></i>
-                    <span>Copiar las franjas del primer dia a todos</span>
-                  </button>
+                  <div class="mt-1">
+                    <button @click="aplicarHorarioATodos(periodo)" class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 font-semibold shadow-sm transition">
+                      <i class="ph ph-copy text-sm"></i>
+                      <span>Copiar las franjas del primer dia a todos</span>
+                    </button>
+                  </div>
                 </div>
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
                   <div v-for="d in periodo.Dias_Periodo" :key="d" class="bg-[#070e1e] border border-slate-800 rounded-lg p-2">
@@ -471,7 +478,7 @@
                           <span>Quitar franja</span>
                         </button>
                       </div>
-                      <button @click="addHorarioSlot(periodo, d)" class="w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 text-[10px] font-semibold transition">
+                      <button @click="addHorarioSlot(periodo, d)" class="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600/80 hover:bg-blue-600 border border-blue-500/40 text-white text-xs font-bold shadow-sm transition">
                         <i class="ph ph-plus"></i>
                         <span>Añadir franja</span>
                       </button>
