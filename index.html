@@ -102,8 +102,14 @@
             <i v-if="busy.active" class="ph ph-spinner spinner"></i><i v-else class="ph ph-cloud-check"></i>
             {{ busy.active ? 'Procesando...' : 'Sincronizado' }}
           </div>
-          <button @click="refreshSnapshot" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold">Recargar</button>
-          <button @click="logoutInstitutionalSession" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold">Cerrar sesión</button>
+          <button @click="refreshSnapshot" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-600 text-slate-200 text-xs font-bold transition">
+            <i class="ph ph-arrows-clockwise text-sm text-sky-400"></i>
+            <span>Recargar</span>
+          </button>
+          <button @click="logoutInstitutionalSession" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-950/30 hover:bg-red-900/50 active:bg-red-950 border border-red-800/50 text-red-300 hover:text-red-100 text-xs font-bold transition">
+            <i class="ph ph-sign-out text-sm"></i>
+            <span>Cerrar sesión</span>
+          </button>
         </div>
       </header>
 
@@ -170,25 +176,39 @@
       <!-- ================= ALUMNOS ================= -->
       <section v-if="activeTab === 'students'" class="space-y-4">
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
-            <h2 class="font-black text-lg">Gestión de Alumnos</h2>
-            <button @click="startNewStudent" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nuevo alumno</button>
+          <div class="flex flex-wrap items-center gap-3 mb-4">
+            <h2 class="font-black text-lg text-white">Gestión de Alumnos</h2>
+            <button @click="startNewStudent" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-950/50 border border-blue-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-user-plus text-base"></i>
+              <span>Nuevo alumno</span>
+            </button>
           </div>
 
-          <div class="mb-3"><input v-model="studentQuery" placeholder="Buscar alumno por nombre, apellidos, curso, grupo o familia" class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm" /></div>
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-3">
+            <div class="flex-1">
+              <input v-model="studentQuery" placeholder="Buscar alumno por nombre, apellidos, curso, grupo o familia..." class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm focus:border-blue-400 outline-none" />
+            </div>
 
-          <div class="mb-3 flex flex-wrap gap-2 items-center">
-            <button @click="downloadStudentsTemplateCsv" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Descargar plantilla CSV de alumnado</button>
-            <label class="px-3 py-2 rounded-lg bg-blue-900/40 border border-blue-700 text-xs font-bold cursor-pointer">
-              Subir CSV/Excel alumnado
-              <input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden" @change="importStudentsFromFile" />
-            </label>
-            <span class="text-xs text-slate-400">Admite la plantilla CSV propia o el "Listado de alumnos" (.xlsx) exportado por el centro.</span>
-            <button v-if="lastImportLog" @click="downloadImportErrorLog" class="px-3 py-2 rounded-lg bg-amber-900/40 border border-amber-700 text-amber-200 text-xs font-bold">Descargar registro de errores ({{ lastImportLog.errores.length }})</button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button @click="downloadStudentsTemplateCsv" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 text-xs font-bold shadow-sm transition">
+                <i class="ph ph-file-csv text-base text-sky-400"></i>
+                <span>Descargar plantilla CSV</span>
+              </button>
+              <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-200 border border-indigo-500/50 text-xs font-bold shadow-sm cursor-pointer transition">
+                <i class="ph ph-upload-simple text-base text-indigo-400"></i>
+                <span>Subir CSV/Excel</span>
+                <input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden" @change="importStudentsFromFile" />
+              </label>
+              <button v-if="lastImportLog" @click="downloadImportErrorLog" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-950/50 hover:bg-amber-900/70 border border-amber-700 text-amber-200 text-xs font-bold shadow-sm transition">
+                <i class="ph ph-warning-circle text-base text-amber-400"></i>
+                <span>Log errores ({{ lastImportLog.errores.length }})</span>
+              </button>
+            </div>
           </div>
+          <p class="text-[11px] text-slate-400 mb-3">Admite la plantilla CSV propia o el "Listado de alumnos" (.xlsx) exportado por el centro.</p>
 
-          <div v-if="selectedStudentIds.length" class="mb-3 flex flex-wrap items-end gap-2 bg-[#040914] border border-slate-800 rounded-lg p-3 text-xs">
-            <span class="font-bold text-sky-300">{{ selectedStudentIds.length }} alumno/s seleccionados</span>
+          <div v-if="selectedStudentIds.length" class="mb-3 flex flex-wrap items-end gap-2 bg-[#040914] border border-blue-900/40 rounded-lg p-3 text-xs shadow-md">
+            <span class="font-bold text-sky-300 flex items-center gap-1"><i class="ph ph-check-square text-base"></i> {{ selectedStudentIds.length }} alumno/s seleccionados</span>
             <div>
               <span class="field-label">Campo a cambiar</span>
               <select v-model="bulkStudentField" @change="bulkStudentValue = ''" class="field">
@@ -218,9 +238,18 @@
                 <option value="finalizada">Finalizada</option>
               </select>
             </div>
-            <button @click="applyBulkStudentEdit" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 font-bold">Aplicar a {{ selectedStudentIds.length }} alumno/s</button>
-            <button v-if="isAdmin" @click="applyBulkStudentDelete" class="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold">Eliminar {{ selectedStudentIds.length }} alumno/s</button>
-            <button @click="selectedStudentIds = []" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 font-bold">Quitar selección</button>
+            <button @click="applyBulkStudentEdit" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-sm transition">
+              <i class="ph ph-check text-base"></i>
+              <span>Aplicar a {{ selectedStudentIds.length }} alumno/s</span>
+            </button>
+            <button v-if="isAdmin" @click="applyBulkStudentDelete" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white font-bold shadow-sm transition">
+              <i class="ph ph-trash text-base"></i>
+              <span>Eliminar {{ selectedStudentIds.length }} alumno/s</span>
+            </button>
+            <button @click="selectedStudentIds = []" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white font-bold transition">
+              <i class="ph ph-x text-sm"></i>
+              <span>Quitar selección</span>
+            </button>
 
             <div class="w-full mt-2 pt-2 border-t border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
               <div>
@@ -238,7 +267,10 @@
                 </select>
               </div>
               <div class="md:col-span-2">
-                <button @click="applyBulkModulosRas" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-bold w-full">Copiar módulos y RAs a todos los periodos de {{ selectedStudentIds.length }} alumno/s</button>
+                <button @click="applyBulkModulosRas" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-bold w-full text-white shadow-sm transition">
+                  <i class="ph ph-copy text-base"></i>
+                  <span>Copiar módulos y RAs a todos los periodos de {{ selectedStudentIds.length }} alumno/s</span>
+                </button>
               </div>
             </div>
           </div>
@@ -279,12 +311,21 @@
                   <td class="p-2">{{ tutorCentroNameById(s.TutorCentroId) || '-' }}</td>
                   <td class="p-2">{{ s.Estado_FFE || 'pendiente' }}</td>
                   <td class="p-2">
-                    <button @click="viewDocumentsForStudent(s)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">{{ documentCountForStudent(s.id) }} doc.</button>
+                    <button @click="viewDocumentsForStudent(s)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-950/70 hover:bg-sky-900 text-sky-300 hover:text-white border border-sky-700/70 text-xs font-bold transition">
+                      <i class="ph ph-files text-sm"></i>
+                      <span>{{ documentCountForStudent(s.id) }} doc.</span>
+                    </button>
                   </td>
                   <td class="p-2">
-                    <div class="flex gap-1">
-                      <button @click="editStudent(s)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
-                      <button v-if="isAdmin" @click="removeStudent(s)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                    <div class="flex gap-1.5">
+                      <button @click="editStudent(s)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white border border-slate-600 hover:border-sky-400 text-xs font-semibold transition">
+                        <i class="ph ph-pencil-simple text-sky-400"></i>
+                        <span>Editar</span>
+                      </button>
+                      <button v-if="isAdmin" @click="removeStudent(s)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800/80 hover:border-red-500 text-xs font-semibold transition">
+                        <i class="ph ph-trash"></i>
+                        <span>Eliminar</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -364,15 +405,21 @@
 
           <div class="mt-4 pt-4 border-t border-slate-800">
             <div class="flex justify-between items-center mb-2">
-              <h4 class="font-semibold text-sm">Periodos de FFE</h4>
-                <button @click="addPeriodo" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs">Añadir periodo</button>
+              <h4 class="font-semibold text-sm text-slate-200">Periodos de FFE</h4>
+              <button @click="addPeriodo" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/80 hover:bg-blue-600 border border-blue-500/40 text-white text-xs font-bold transition">
+                <i class="ph ph-plus-circle text-base"></i>
+                <span>Añadir periodo</span>
+              </button>
             </div>
             <p class="text-xs text-slate-400 mb-3">Un alumno puede tener uno o varios periodos, en la misma o distintas empresas.</p>
 
             <div v-for="(periodo, pIdx) in studentForm.Periodos" :key="periodo.id" class="mb-4 bg-[#040914] border border-slate-800 rounded-lg p-3">
               <div class="flex justify-between items-center mb-2">
                 <span class="text-xs font-black text-sky-300">Periodo {{ pIdx + 1 }}</span>
-                <button @click="removePeriodo(pIdx)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300 text-xs">Quitar periodo</button>
+                <button @click="removePeriodo(pIdx)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-600 border border-red-800/80 hover:border-red-500 text-red-300 hover:text-white text-xs font-semibold transition">
+                  <i class="ph ph-trash"></i>
+                  <span>Quitar periodo</span>
+                </button>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mb-3">
@@ -406,7 +453,10 @@
               <div v-if="periodo.Dias_Periodo.length" class="mb-3">
                 <div class="flex items-center justify-between mb-1">
                   <span class="field-label">Horario por dia</span>
-                  <button @click="aplicarHorarioATodos(periodo)" class="text-[10px] px-2 py-1 rounded bg-slate-800 border border-slate-700">Copiar las franjas del primer dia a todos</button>
+                  <button @click="aplicarHorarioATodos(periodo)" class="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 font-semibold transition">
+                    <i class="ph ph-copy"></i>
+                    <span>Copiar las franjas del primer dia a todos</span>
+                  </button>
                 </div>
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
                   <div v-for="d in periodo.Dias_Periodo" :key="d" class="bg-[#070e1e] border border-slate-800 rounded-lg p-2">
@@ -416,9 +466,15 @@
                         <span class="field-label">Franja {{ slotIdx + 1 }}</span>
                         <input type="time" v-model="slot.inicio" class="field mb-1" />
                         <input type="time" v-model="slot.fin" class="field" />
-                        <button @click="removeHorarioSlot(periodo, d, slotIdx)" class="mt-2 w-full px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300 text-[10px]">Quitar franja</button>
+                        <button @click="removeHorarioSlot(periodo, d, slotIdx)" class="mt-2 w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded bg-red-950/60 hover:bg-red-600 border border-red-800/80 text-red-300 hover:text-white text-[10px] font-semibold transition">
+                          <i class="ph ph-trash"></i>
+                          <span>Quitar franja</span>
+                        </button>
                       </div>
-                      <button @click="addHorarioSlot(periodo, d)" class="w-full px-2 py-1 rounded bg-slate-800 border border-slate-700 text-[10px]">Añadir franja</button>
+                      <button @click="addHorarioSlot(periodo, d)" class="w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 text-[10px] font-semibold transition">
+                        <i class="ph ph-plus"></i>
+                        <span>Añadir franja</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -427,14 +483,20 @@
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs items-end mb-1">
                 <div><span class="field-label">Horas/semana</span><input type="number" min="0" step="0.5" v-model.number="periodo.Horas_Semana_Periodo" class="field" /></div>
                 <div><span class="field-label">Horas totales del periodo</span><input type="number" min="0" step="0.5" v-model.number="periodo.Horas_Totales_Periodo" class="field" /></div>
-                <button @click="recalcularPeriodo(periodo)" class="px-2 py-2 rounded bg-blue-600 hover:bg-blue-700 font-bold">Recalcular horas</button>
+                <button @click="recalcularPeriodo(periodo)" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition">
+                  <i class="ph ph-calculator text-base"></i>
+                  <span>Recalcular horas</span>
+                </button>
               </div>
               <p class="text-[10px] text-slate-500 mb-3">El cálculo usa el calendario lectivo del curso académico del alumno (festivos configurados en Admin).</p>
 
               <div class="pt-3 border-t border-slate-800">
                 <div class="flex justify-between items-center mb-2">
                   <span class="text-xs font-bold text-slate-300">Modulos y RAs de este periodo</span>
-                  <button @click="addModulo(periodo)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs">Añadir módulo</button>
+                  <button @click="addModulo(periodo)" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600/80 hover:bg-blue-600 border border-blue-500/40 text-white text-xs font-bold transition">
+                    <i class="ph ph-plus"></i>
+                    <span>Añadir módulo</span>
+                  </button>
                 </div>
 
                 <div v-for="(modulo, mIdx) in periodo.Modulos" :key="modulo.id" class="mb-2 bg-[#070e1e] border border-slate-800 rounded-lg p-2">
@@ -448,7 +510,10 @@
                       <input v-model="modulo.Nombre_Modulo" placeholder="Nombre del módulo" class="field" />
                     </div>
                     <div class="md:col-span-1">
-                      <button @click="removeModulo(periodo, mIdx)" class="w-full px-2 py-2 rounded bg-red-900/40 border border-red-800 text-red-300 font-semibold">Quitar módulo</button>
+                      <button @click="removeModulo(periodo, mIdx)" class="w-full inline-flex items-center justify-center gap-1 px-2 py-2 rounded bg-red-950/60 hover:bg-red-600 border border-red-800/80 text-red-300 hover:text-white font-semibold transition">
+                        <i class="ph ph-trash"></i>
+                        <span>Quitar módulo</span>
+                      </button>
                     </div>
                   </div>
 
@@ -465,10 +530,16 @@
                       </select>
                     </div>
                     <div class="md:col-span-1">
-                      <button @click="removeRA(modulo, rIdx)" class="w-full px-2 py-2 rounded bg-red-900/40 border border-red-800 text-red-300 font-semibold">Quitar RA</button>
+                      <button @click="removeRA(modulo, rIdx)" class="w-full inline-flex items-center justify-center gap-1 px-2 py-2 rounded bg-red-950/60 hover:bg-red-600 border border-red-800/80 text-red-300 hover:text-white font-semibold transition">
+                        <i class="ph ph-trash"></i>
+                        <span>Quitar RA</span>
+                      </button>
                     </div>
                   </div>
-                    <button @click="addRA(modulo)" class="mt-1 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-[10px]">Añadir RA</button>
+                  <button @click="addRA(modulo)" class="mt-1 inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 text-[10px] font-semibold transition">
+                    <i class="ph ph-plus"></i>
+                    <span>Añadir RA</span>
+                  </button>
                 </div>
                 <p v-if="!periodo.Modulos.length" class="text-[10px] text-slate-500">Sin modulos anadidos a este periodo.</p>
               </div>
@@ -476,9 +547,15 @@
             <p v-if="!studentForm.Periodos.length" class="text-xs text-slate-500">Este alumno/a todavía no tiene ningún periodo de FFE.</p>
           </div>
 
-          <div class="mt-3 flex gap-2">
-            <button @click="saveStudent" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar alumno/a</button>
-            <button @click="cancelStudentForm" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end gap-2.5">
+            <button @click="cancelStudentForm" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-600 text-slate-300 hover:text-white text-xs font-bold transition">
+              <i class="ph ph-x text-sm"></i>
+              <span>Cancelar</span>
+            </button>
+            <button @click="saveStudent" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-950/50 border border-emerald-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-check-circle text-base"></i>
+              <span>Guardar alumno/a</span>
+            </button>
           </div>
         </div>
       </section>
@@ -486,18 +563,25 @@
       <!-- ================= EMPRESAS ================= -->
       <section v-if="activeTab === 'companies'" class="space-y-4">
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
-            <h2 class="font-black text-lg">Gestión de Empresas</h2>
-            <div class="flex gap-2">
-              <button @click="showConvenioLog = !showConvenioLog" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">{{ showConvenioLog ? 'Ocultar' : 'Ver' }} log de convenios</button>
-              <button @click="startNewCompany" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nueva empresa</button>
-            </div>
+          <div class="flex flex-wrap items-center gap-3 mb-4">
+            <h2 class="font-black text-lg text-white">Gestión de Empresas</h2>
+            <button @click="startNewCompany" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-950/50 border border-blue-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-buildings text-base"></i>
+              <span>Nueva empresa</span>
+            </button>
+            <button @click="showConvenioLog = !showConvenioLog" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold shadow-sm transition">
+              <i class="ph ph-list-magnifying-glass text-base text-amber-400"></i>
+              <span>{{ showConvenioLog ? 'Ocultar' : 'Ver' }} log de convenios</span>
+            </button>
           </div>
 
           <div v-if="showConvenioLog" class="mb-4 bg-[#040914] border border-slate-800 rounded-lg p-3">
             <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
               <h3 class="text-sm font-bold text-slate-200">Registro de números de convenio ({{ conveniosOrdenados.length }} empresas)</h3>
-              <button @click="downloadConvenioLog" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs">Descargar CSV</button>
+              <button @click="downloadConvenioLog" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 text-xs font-bold transition">
+                <i class="ph ph-download-simple"></i>
+                <span>Descargar CSV</span>
+              </button>
             </div>
             <div class="overflow-x-auto rounded-lg border border-slate-800">
               <table class="w-full text-xs">
@@ -515,19 +599,27 @@
             </div>
           </div>
 
-          <div class="mb-3"><input v-model="companyQuery" placeholder="Buscar empresa por nombre, NIF o actividad" class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm" /></div>
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-3">
+            <div class="flex-1">
+              <input v-model="companyQuery" placeholder="Buscar empresa por nombre, NIF o actividad..." class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-sm focus:border-blue-400 outline-none" />
+            </div>
 
-          <div class="mb-3 flex flex-wrap gap-2 items-center">
-            <button @click="downloadCompaniesTemplateCsv" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Descargar plantilla CSV empresas</button>
-            <label class="px-3 py-2 rounded-lg bg-blue-900/40 border border-blue-700 text-xs font-bold cursor-pointer">
-              Subir CSV empresas
-              <input type="file" accept=".csv,text/csv" class="hidden" @change="importCompaniesFromCsv" />
-            </label>
-            <span class="text-xs text-slate-400">Los tutores de empresa se añaden desde la ficha de cada empresa.</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <button @click="downloadCompaniesTemplateCsv" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 text-xs font-bold shadow-sm transition">
+                <i class="ph ph-file-csv text-base text-sky-400"></i>
+                <span>Descargar plantilla CSV</span>
+              </button>
+              <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-200 border border-indigo-500/50 text-xs font-bold shadow-sm cursor-pointer transition">
+                <i class="ph ph-upload-simple text-base text-indigo-400"></i>
+                <span>Subir CSV empresas</span>
+                <input type="file" accept=".csv,text/csv" class="hidden" @change="importCompaniesFromCsv" />
+              </label>
+            </div>
           </div>
+          <p class="text-[11px] text-slate-400 mb-3">Los tutores de empresa se añaden desde la ficha de cada empresa.</p>
 
-          <div v-if="selectedCompanyIds.length" class="mb-3 flex flex-wrap items-end gap-2 bg-[#040914] border border-slate-800 rounded-lg p-3 text-xs">
-            <span class="font-bold text-sky-300">{{ selectedCompanyIds.length }} empresa/s seleccionadas</span>
+          <div v-if="selectedCompanyIds.length" class="mb-3 flex flex-wrap items-end gap-2 bg-[#040914] border border-blue-900/40 rounded-lg p-3 text-xs shadow-md">
+            <span class="font-bold text-sky-300 flex items-center gap-1"><i class="ph ph-check-square text-base"></i> {{ selectedCompanyIds.length }} empresa/s seleccionadas</span>
             <div>
               <span class="field-label">Campo a cambiar</span>
               <select v-model="bulkCompanyField" @change="bulkCompanyValue = ''" class="field">
@@ -543,8 +635,14 @@
                 <option v-for="c in cursosAcademicos" :key="c.id" :value="c.id">{{ c.Nombre_Curso }}</option>
               </select>
             </div>
-            <button @click="applyBulkCompanyEdit" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 font-bold">Aplicar a {{ selectedCompanyIds.length }} empresa/s</button>
-            <button @click="selectedCompanyIds = []" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 font-bold">Quitar selección</button>
+            <button @click="applyBulkCompanyEdit" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-sm transition">
+              <i class="ph ph-check text-base"></i>
+              <span>Aplicar a {{ selectedCompanyIds.length }} empresa/s</span>
+            </button>
+            <button @click="selectedCompanyIds = []" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white font-bold transition">
+              <i class="ph ph-x text-sm"></i>
+              <span>Quitar selección</span>
+            </button>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -567,11 +665,22 @@
                   <td class="p-2">{{ c.Localidad_Empresa || '-' }}<div class="text-slate-400">{{ c.Provincia_Empresa || '' }} {{ c.Pais_Empresa || '' }}</div></td>
                   <td class="p-2">{{ c.Nombre_Representante_Empresa || '-' }}<div class="text-slate-400">{{ c.Cargo_Representante_Empresa || '' }}</div></td>
                   <td class="p-2">{{ (c.TutoresEmpresa || []).length }}</td>
-                  <td class="p-2"><button @click="viewDocumentsForCompany(c)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">{{ documentCountForCompany(c.id) }} doc.</button></td>
                   <td class="p-2">
-                    <div class="flex gap-1">
-                      <button @click="editCompany(c)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
-                      <button v-if="isAdmin" @click="removeCompany(c)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                    <button @click="viewDocumentsForCompany(c)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-950/70 hover:bg-sky-900 text-sky-300 hover:text-white border border-sky-700/70 text-xs font-bold transition">
+                      <i class="ph ph-files text-sm"></i>
+                      <span>{{ documentCountForCompany(c.id) }} doc.</span>
+                    </button>
+                  </td>
+                  <td class="p-2">
+                    <div class="flex gap-1.5">
+                      <button @click="editCompany(c)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white border border-slate-600 hover:border-sky-400 text-xs font-semibold transition">
+                        <i class="ph ph-pencil-simple text-sky-400"></i>
+                        <span>Editar</span>
+                      </button>
+                      <button v-if="isAdmin" @click="removeCompany(c)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800/80 hover:border-red-500 text-xs font-semibold transition">
+                        <i class="ph ph-trash"></i>
+                        <span>Eliminar</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -601,25 +710,39 @@
 
           <div class="mt-4 pt-4 border-t border-slate-800">
             <div class="flex justify-between items-center mb-2">
-              <h4 class="font-semibold text-sm">Tutores de empresa</h4>
-              <button @click="addTutorEmpresa" class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs">Añadir tutor/a</button>
+              <h4 class="font-semibold text-sm text-slate-200">Tutores de empresa</h4>
+              <button @click="addTutorEmpresa" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/80 hover:bg-blue-600 border border-blue-500/40 text-white text-xs font-bold transition">
+                <i class="ph ph-user-plus text-base"></i>
+                <span>Añadir tutor/a</span>
+              </button>
             </div>
             <div class="space-y-2">
-              <div v-for="(t, idx) in companyForm.TutoresEmpresa" :key="t.id" class="grid grid-cols-1 md:grid-cols-6 gap-2 text-xs bg-[#040914] p-2 rounded-lg border border-slate-800">
+              <div v-for="(t, idx) in companyForm.TutoresEmpresa" :key="t.id" class="grid grid-cols-1 md:grid-cols-6 gap-2 text-xs bg-[#040914] p-2.5 rounded-lg border border-slate-800 items-end">
                 <div><span class="field-label">Nombre</span><input v-model="t.Nombre_Tutor" class="field" /></div>
                 <div><span class="field-label">Apellidos</span><input v-model="t.Apellidos_Tutor" class="field" /></div>
                 <div><span class="field-label">DNI</span><input v-model="t.DNI_Tutor" class="field" /></div>
                 <div><span class="field-label">Email</span><input v-model="t.Email_Tutor" class="field" /></div>
                 <div><span class="field-label">Teléfono</span><input v-model="t.Telefono_Tutor" class="field" /></div>
-                <button @click="removeTutorEmpresa(idx)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Quitar</button>
+                <div>
+                  <button @click="removeTutorEmpresa(idx)" class="w-full inline-flex items-center justify-center gap-1 px-2 py-2 rounded bg-red-950/60 hover:bg-red-600 border border-red-800/80 text-red-300 hover:text-white font-semibold transition">
+                    <i class="ph ph-trash"></i>
+                    <span>Quitar</span>
+                  </button>
+                </div>
               </div>
               <p v-if="(companyForm.TutoresEmpresa || []).length === 0" class="text-xs text-slate-400">Sin tutores de empresa todavía.</p>
             </div>
           </div>
 
-          <div class="mt-3 flex gap-2">
-            <button @click="saveCompany" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar empresa</button>
-            <button @click="cancelCompanyForm" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end gap-2.5">
+            <button @click="cancelCompanyForm" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-600 text-slate-300 hover:text-white text-xs font-bold transition">
+              <i class="ph ph-x text-sm"></i>
+              <span>Cancelar</span>
+            </button>
+            <button @click="saveCompany" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-950/50 border border-emerald-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-check-circle text-base"></i>
+              <span>Guardar empresa</span>
+            </button>
           </div>
         </div>
       </section>
@@ -627,18 +750,24 @@
       <!-- ================= DOCUMENTOS ================= -->
       <section v-if="activeTab === 'documents'" class="space-y-4">
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
-            <h2 class="font-black text-lg">Documentos generados</h2>
-            <button @click="openGenerateDocForm" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Generar documento PDF</button>
+          <div class="flex flex-wrap items-center gap-3 mb-4">
+            <h2 class="font-black text-lg text-white">Documentos generados</h2>
+            <button @click="openGenerateDocForm" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-950/50 border border-blue-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-file-pdf text-base"></i>
+              <span>Generar documento PDF</span>
+            </button>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 text-xs">
-            <input v-model="documentQuery" placeholder="Buscar por alumno o empresa" class="field md:col-span-2" />
+            <input v-model="documentQuery" placeholder="Buscar por alumno o empresa..." class="field md:col-span-2" />
             <select v-model="documentTipoFilter" class="field">
               <option value="">Todos los tipos</option>
               <option v-for="tipo in documentTiposDisponibles" :key="tipo" :value="tipo">{{ tipo }}</option>
             </select>
-            <button v-if="documentStudentFilter || documentCompanyFilter" @click="documentStudentFilter=''; documentCompanyFilter=''" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 font-bold">Quitar filtro de alumno/empresa</button>
+            <button v-if="documentStudentFilter || documentCompanyFilter" @click="documentStudentFilter=''; documentCompanyFilter=''" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 font-bold text-slate-200 transition">
+              <i class="ph ph-funnel-x text-sm"></i>
+              <span>Quitar filtro</span>
+            </button>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -654,14 +783,20 @@
               </thead>
               <tbody>
                 <tr v-for="d in filteredDocuments" :key="d.id" class="border-t border-slate-800">
-                  <td class="p-2"><span class="px-2 py-1 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-200">{{ d.Tipo_Documento }}</span></td>
-                  <td class="p-2">{{ studentNameById(d.StudentId) }}</td>
-                  <td class="p-2">{{ companyNameById(d.CompanyId) }}</td>
+                  <td class="p-2"><span class="px-2 py-1 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-semibold">{{ d.Tipo_Documento }}</span></td>
+                  <td class="p-2 font-medium">{{ studentNameById(d.StudentId) }}</td>
+                  <td class="p-2 font-medium">{{ companyNameById(d.CompanyId) }}</td>
                   <td class="p-2">{{ formatDateTime(d.generatedAt) }}<div class="text-slate-400">{{ d.generatedBy }}</div></td>
                   <td class="p-2">
-                    <div class="flex gap-1">
-                      <a :href="d.url" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded bg-sky-900/40 border border-sky-700 text-sky-200">Abrir PDF</a>
-                      <button v-if="canDeleteDocument(d)" @click="removeDocument(d)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                    <div class="flex gap-1.5">
+                      <a :href="d.url" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/70 hover:bg-red-900 text-red-200 hover:text-white border border-red-700/70 text-xs font-bold transition cursor-pointer">
+                        <i class="ph ph-file-pdf text-red-400"></i>
+                        <span>Abrir PDF</span>
+                      </a>
+                      <button v-if="canDeleteDocument(d)" @click="removeDocument(d)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800/80 hover:border-red-500 text-xs font-semibold transition">
+                        <i class="ph ph-trash"></i>
+                        <span>Eliminar</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -765,9 +900,15 @@
             <input v-model="genDocForm.idConvenioManual" placeholder="001CM" class="field" />
             <p class="text-[10px] text-amber-300 mt-1">Se guardara en la ficha de la empresa para que no vuelva a pedirse.</p>
           </div>
-          <div class="mt-3 flex gap-2">
-            <button @click="generateDocumentPdf" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Generar PDF</button>
-            <button @click="genDocFormOpen = false" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end gap-2.5">
+            <button @click="genDocFormOpen = false" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-600 text-slate-300 hover:text-white text-xs font-bold transition">
+              <i class="ph ph-x text-sm"></i>
+              <span>Cancelar</span>
+            </button>
+            <button @click="generateDocumentPdf" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-950/50 border border-emerald-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-file-pdf text-base"></i>
+              <span>Generar PDF</span>
+            </button>
           </div>
         </div>
       </section>
@@ -787,8 +928,14 @@
             <p class="text-xs font-semibold text-slate-300 mb-1">Profesores permitidos</p>
             <div class="flex flex-col sm:flex-row gap-2 mb-2">
               <input v-model="newAllowedEmail" placeholder="correo@sagrado-corazon.es" class="flex-1 px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
-              <button @click="addAllowedEmail" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Agregar</button>
-              <button @click="saveAllowedEmails" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar lista</button>
+              <button @click="addAllowedEmail" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold transition">
+                <i class="ph ph-user-plus text-base"></i>
+                <span>Agregar</span>
+              </button>
+              <button @click="saveAllowedEmails" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold transition">
+                <i class="ph ph-floppy-disk text-base"></i>
+                <span>Guardar lista</span>
+              </button>
             </div>
             <div class="flex flex-wrap gap-2">
               <span v-for="email in accessControl.allowedEmails" :key="email" class="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#040914] border border-slate-700 text-xs">
@@ -799,9 +946,12 @@
         </div>
 
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+          <div class="flex flex-wrap items-center gap-3 mb-2">
             <h3 class="text-sm font-bold text-slate-200">Tutores del centro educativo</h3>
-            <button @click="startNewTutorCentro" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nuevo tutor/a</button>
+            <button @click="startNewTutorCentro" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">
+              <i class="ph ph-user-plus text-base"></i>
+              <span>Nuevo tutor/a</span>
+            </button>
           </div>
           <p class="text-xs text-slate-400 mb-3">Este listado alimenta el desplegable "Tutor/a del centro" de la ficha de cada alumno.</p>
 
@@ -821,9 +971,15 @@
                   <td class="p-2">{{ t.DNI_Tutor_Centro || '-' }}</td>
                   <td class="p-2">{{ t.Email_Tutor_Centro || '-' }}</td>
                   <td class="p-2">
-                    <div class="flex gap-1">
-                      <button @click="editTutorCentro(t)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
-                      <button @click="removeTutorCentro(t)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                    <div class="flex gap-1.5">
+                      <button @click="editTutorCentro(t)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white border border-slate-600 text-xs font-semibold transition">
+                        <i class="ph ph-pencil-simple text-sky-400"></i>
+                        <span>Editar</span>
+                      </button>
+                      <button @click="removeTutorCentro(t)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800 text-xs font-semibold transition">
+                        <i class="ph ph-trash"></i>
+                        <span>Eliminar</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -837,17 +993,26 @@
             <div><span class="field-label">Apellidos</span><input v-model="tutorCentroForm.Apellidos_Tutor_Centro" class="field" /></div>
             <div><span class="field-label">DNI</span><input v-model="tutorCentroForm.DNI_Tutor_Centro" class="field" /></div>
             <div><span class="field-label">Correo electronico</span><input v-model="tutorCentroForm.Email_Tutor_Centro" class="field" /></div>
-            <div class="md:col-span-2 flex gap-2">
-              <button @click="saveTutorCentro" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar tutor/a</button>
-              <button @click="tutorCentroFormOpen = false" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+            <div class="md:col-span-2 flex justify-end gap-2.5 pt-2 border-t border-slate-800">
+              <button @click="tutorCentroFormOpen = false" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 text-xs font-bold transition">
+                <i class="ph ph-x text-sm"></i>
+                <span>Cancelar</span>
+              </button>
+              <button @click="saveTutorCentro" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+                <i class="ph ph-check-circle text-base"></i>
+                <span>Guardar tutor/a</span>
+              </button>
             </div>
           </div>
         </div>
 
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+          <div class="flex flex-wrap items-center gap-3 mb-2">
             <h3 class="text-sm font-bold text-slate-200">Cursos académicos</h3>
-            <button @click="startNewCursoAcademico" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Crear curso académico</button>
+            <button @click="startNewCursoAcademico" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">
+              <i class="ph ph-plus-circle text-base"></i>
+              <span>Crear curso académico</span>
+            </button>
           </div>
             <p class="text-xs text-slate-400 mb-3">Los alumnos y empresas que no tengan curso asignado siguen viéndose siempre en "Todos los cursos" (arriba, en la cabecera).</p>
 
@@ -866,11 +1031,18 @@
                   <td class="p-2 font-semibold">{{ c.Nombre_Curso }}</td>
                   <td class="p-2 text-slate-400">{{ c.ClonadoDeId ? ('Copia de ' + (cursoNombreById(c.ClonadoDeId) || 'curso eliminado')) : 'Vacío' }}</td>
                   <td class="p-2">
-                    <span v-if="c.id === activeCursoAcademicoId" class="px-2 py-1 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-200">Predeterminado</span>
-                    <button v-else @click="marcarCursoActivo(c)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Marcar como predeterminado</button>
+                    <span v-if="c.id === activeCursoAcademicoId" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold">
+                      <i class="ph ph-check-circle"></i> Predeterminado
+                    </span>
+                    <button v-else @click="marcarCursoActivo(c)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 text-xs font-medium transition">
+                      <i class="ph ph-star"></i> Marcar como predeterminado
+                    </button>
                   </td>
                   <td class="p-2">
-                    <button @click="editCursoAcademico(c)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Renombrar</button>
+                    <button @click="editCursoAcademico(c)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white border border-slate-600 text-xs font-semibold transition">
+                      <i class="ph ph-pencil-simple text-sky-400"></i>
+                      <span>Renombrar</span>
+                    </button>
                   </td>
                 </tr>
                 <tr v-if="cursosAcademicos.length === 0"><td colspan="4" class="p-3 text-center text-slate-400">Sin cursos académicos todavía. Mientras no crees ninguno, todo se ve bajo "Todos los cursos".</td></tr>
@@ -894,17 +1066,26 @@
               <input type="checkbox" id="marcarActivoCheck" v-model="cursoAcademicoForm.marcarActivo" />
               <label for="marcarActivoCheck" class="text-xs text-slate-300">Marcar como predeterminado al crearlo</label>
             </div>
-            <div class="md:col-span-2 flex gap-2">
-              <button @click="saveCursoAcademico" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar</button>
-              <button @click="cursoAcademicoFormOpen = false" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+            <div class="md:col-span-2 flex justify-end gap-2.5 pt-2 border-t border-slate-800">
+              <button @click="cursoAcademicoFormOpen = false" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 text-xs font-bold transition">
+                <i class="ph ph-x text-sm"></i>
+                <span>Cancelar</span>
+              </button>
+              <button @click="saveCursoAcademico" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+                <i class="ph ph-check-circle text-base"></i>
+                <span>Guardar</span>
+              </button>
             </div>
           </div>
         </div>
 
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+          <div class="flex flex-wrap items-center gap-3 mb-2">
             <h3 class="text-sm font-bold text-slate-200">Ciclos formativos</h3>
-            <button @click="startNewEstudio" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold">Nuevo ciclo</button>
+            <button @click="startNewEstudio" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">
+              <i class="ph ph-plus-circle text-base"></i>
+              <span>Nuevo ciclo</span>
+            </button>
           </div>
           <p class="text-xs text-slate-400 mb-3">El Grupo de cada alumno se calcula como Curso + Código del ciclo (ej. "1-SAN201").</p>
 
@@ -926,9 +1107,15 @@
                   <td class="p-2">{{ e.Grado_Estudio || '-' }}</td>
                   <td class="p-2">{{ e.Regimen_Estudio || 'General' }}</td>
                   <td class="p-2">
-                    <div class="flex gap-1">
-                      <button @click="editEstudio(e)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
-                      <button @click="removeEstudio(e)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Eliminar</button>
+                    <div class="flex gap-1.5">
+                      <button @click="editEstudio(e)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white border border-slate-600 text-xs font-semibold transition">
+                        <i class="ph ph-pencil-simple text-sky-400"></i>
+                        <span>Editar</span>
+                      </button>
+                      <button @click="removeEstudio(e)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800 text-xs font-semibold transition">
+                        <i class="ph ph-trash"></i>
+                        <span>Eliminar</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -956,9 +1143,15 @@
                 <option value="Intensivo">Intensivo</option>
               </select>
             </div>
-            <div class="md:col-span-4 flex gap-2">
-              <button @click="saveEstudio" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar ciclo</button>
-              <button @click="estudioFormOpen = false" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold">Cancelar</button>
+            <div class="md:col-span-4 flex justify-end gap-2.5 pt-2 border-t border-slate-800">
+              <button @click="estudioFormOpen = false" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 text-xs font-bold transition">
+                <i class="ph ph-x text-sm"></i>
+                <span>Cancelar</span>
+              </button>
+              <button @click="saveEstudio" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+                <i class="ph ph-check-circle text-base"></i>
+                <span>Guardar ciclo</span>
+              </button>
             </div>
           </div>
         </div>
@@ -987,8 +1180,14 @@
               Haz clic en un dia para marcarlo/desmarcarlo.
             </p>
             <div class="flex gap-2">
-              <button @click="marcarFinesDeSemanaComoFestivos" class="text-[10px] px-2 py-1 rounded bg-slate-800 border border-slate-700">Marcar sabados y domingos como festivos</button>
-              <button v-if="calendarioAdminForm.festivos.length" @click="calendarioAdminForm.festivos = []" class="text-[10px] px-2 py-1 rounded bg-slate-800 border border-slate-700">Quitar todos los festivos</button>
+              <button @click="marcarFinesDeSemanaComoFestivos" class="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 transition">
+                <i class="ph ph-calendar"></i>
+                <span>Marcar sábados y domingos</span>
+              </button>
+              <button v-if="calendarioAdminForm.festivos.length" @click="calendarioAdminForm.festivos = []" class="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-red-950/50 hover:bg-red-900 border border-red-800 text-red-300 transition">
+                <i class="ph ph-trash"></i>
+                <span>Quitar todos los festivos</span>
+              </button>
             </div>
           </div>
           <div v-if="allCalendarMonths.length" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 p-2 bg-[#040914] rounded-xl border border-slate-800">
@@ -1009,7 +1208,12 @@
           </div>
           <p v-else class="text-xs text-slate-500 mb-2">Indica fecha de inicio y fin para ver el calendario.</p>
 
-          <button @click="saveCalendario" class="mt-3 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar calendario</button>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+            <button @click="saveCalendario" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-950/50 border border-emerald-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-calendar-check text-base"></i>
+              <span>Guardar calendario</span>
+            </button>
+          </div>
         </div>
 
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
@@ -1021,7 +1225,12 @@
               <input v-model="centroForm[f.key]" class="field" />
             </div>
           </div>
-          <button @click="saveDocSettings" class="mt-3 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar datos del centro</button>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+            <button @click="saveDocSettings" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-950/50 border border-emerald-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-check-circle text-base"></i>
+              <span>Guardar datos del centro</span>
+            </button>
+          </div>
         </div>
 
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
@@ -1051,8 +1260,14 @@
               </select>
             </div>
             <div class="flex gap-2 mb-3">
-              <button @click="addTemplateMapping" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold whitespace-nowrap">{{ editingTemplateOriginalTipo ? 'Guardar cambios' : 'Añadir tipo' }}</button>
-              <button v-if="editingTemplateOriginalTipo" @click="cancelTemplateEdit" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold whitespace-nowrap">Cancelar edición</button>
+              <button @click="addTemplateMapping" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm transition">
+                <i class="ph ph-plus-circle text-base"></i>
+                <span>{{ editingTemplateOriginalTipo ? 'Guardar cambios' : 'Añadir tipo' }}</span>
+              </button>
+              <button v-if="editingTemplateOriginalTipo" @click="cancelTemplateEdit" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 text-xs font-bold transition">
+                <i class="ph ph-x text-sm"></i>
+                <span>Cancelar edición</span>
+              </button>
             </div>
 
             <div class="space-y-1">
@@ -1062,16 +1277,30 @@
                 <span class="text-slate-400 truncate">{{ templateOutputFolderIdByTipo(tipo) || 'Sin carpeta' }}</span>
                 <span class="text-slate-400 truncate">{{ templateFileNamePatternByTipo(tipo) || 'Sin patrón' }}</span>
                 <span class="px-2 py-0.5 rounded border text-[10px] text-center" :class="templateScopeBadgeClass(tipo)">{{ templateScopeLabel(tipo) }}</span>
-                <div class="flex gap-1">
-                  <button @click="editTemplateMapping(tipo)" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Editar</button>
-                  <button @click="previewTemplateFor(templateDocIdByTipo(tipo))" class="px-2 py-1 rounded bg-slate-800 border border-slate-700">Leer campos</button>
-                  <button @click="removeTemplateMapping(tipo)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Quitar</button>
+                <div class="flex gap-1.5">
+                  <button @click="editTemplateMapping(tipo)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white border border-slate-600 text-xs font-semibold transition">
+                    <i class="ph ph-pencil-simple text-sky-400"></i>
+                    <span>Editar</span>
+                  </button>
+                  <button @click="previewTemplateFor(templateDocIdByTipo(tipo))" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-sky-300 hover:text-sky-200 border border-slate-600 text-xs font-semibold transition">
+                    <i class="ph ph-file-text"></i>
+                    <span>Leer campos</span>
+                  </button>
+                  <button @click="removeTemplateMapping(tipo)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800 text-xs font-semibold transition">
+                    <i class="ph ph-trash"></i>
+                    <span>Quitar</span>
+                  </button>
                 </div>
               </div>
               <p v-if="Object.keys(docSettings.templates || {}).length === 0" class="text-xs text-slate-500">Sin tipos de documento configurados todavía.</p>
             </div>
 
-            <button @click="saveDocSettings" class="mt-3 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">Guardar configuración documental</button>
+            <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+              <button @click="saveDocSettings" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-950/50 border border-emerald-400/40 transition transform hover:-translate-y-0.5">
+                <i class="ph ph-check-circle text-base"></i>
+                <span>Guardar configuración documental</span>
+              </button>
+            </div>
 
             <div v-if="templatePlaceholdersDetected.length" class="mt-3 p-3 rounded-lg bg-[#040914] border border-slate-800">
               <p class="text-xs font-semibold text-slate-300 mb-2">Campos detectados en la plantilla (&lt;...&gt;)</p>
