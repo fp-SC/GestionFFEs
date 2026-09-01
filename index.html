@@ -2383,17 +2383,17 @@
             }))
           };
         },
-        buildPeriodoForBulkFromSource(sourcePeriodo) {
+        buildDefaultEmptyPeriodoForBulk() {
           return {
             id: this.nuevoIdLocal('per'),
-            EmpresaId: (sourcePeriodo && sourcePeriodo.EmpresaId) || '',
-            TutorEmpresaId: (sourcePeriodo && sourcePeriodo.TutorEmpresaId) || '',
-            Fecha_Inicio_Periodo: (sourcePeriodo && sourcePeriodo.Fecha_Inicio_Periodo) || '',
-            Fecha_Fin_Periodo: (sourcePeriodo && sourcePeriodo.Fecha_Fin_Periodo) || '',
-            Dias_Periodo: Array.isArray(sourcePeriodo && sourcePeriodo.Dias_Periodo) ? sourcePeriodo.Dias_Periodo.slice() : [],
-            Horario_Periodo: JSON.parse(JSON.stringify((sourcePeriodo && sourcePeriodo.Horario_Periodo) || {})),
-            Horas_Semana_Periodo: Number((sourcePeriodo && sourcePeriodo.Horas_Semana_Periodo) || 0),
-            Horas_Totales_Periodo: Number((sourcePeriodo && sourcePeriodo.Horas_Totales_Periodo) || 0),
+            EmpresaId: '',
+            TutorEmpresaId: '',
+            Fecha_Inicio_Periodo: '',
+            Fecha_Fin_Periodo: '',
+            Dias_Periodo: [],
+            Horario_Periodo: {},
+            Horas_Semana_Periodo: 0,
+            Horas_Totales_Periodo: 0,
             Modulos: []
           };
         },
@@ -2421,7 +2421,7 @@
             const payload = JSON.parse(JSON.stringify(student));
             if (!Array.isArray(payload.Periodos)) payload.Periodos = [];
             if (!payload.Periodos.length) {
-              payload.Periodos.push(this.buildPeriodoForBulkFromSource(sourcePeriodo));
+              payload.Periodos.push(this.buildDefaultEmptyPeriodoForBulk());
               createdPeriodos += 1;
             }
 
