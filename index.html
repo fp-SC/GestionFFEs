@@ -438,19 +438,35 @@
                 </div>
 
                 <div v-for="(modulo, mIdx) in periodo.Modulos" :key="modulo.id" class="mb-2 bg-[#070e1e] border border-slate-800 rounded-lg p-2">
-                  <div class="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs mb-2">
-                    <input v-model="modulo.Codigo_Modulo" placeholder="Código módulo" class="field md:col-span-1" />
-                    <input v-model="modulo.Nombre_Modulo" placeholder="Nombre del módulo" class="field md:col-span-3" />
-                    <button @click="removeModulo(periodo, mIdx)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Quitar módulo</button>
+                  <div class="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs mb-2 items-end">
+                    <div class="md:col-span-1">
+                      <span class="field-label">Código módulo</span>
+                      <input v-model="modulo.Codigo_Modulo" placeholder="Código módulo" class="field" />
+                    </div>
+                    <div class="md:col-span-3">
+                      <span class="field-label">Nombre del módulo</span>
+                      <input v-model="modulo.Nombre_Modulo" placeholder="Nombre del módulo" class="field" />
+                    </div>
+                    <div class="md:col-span-1">
+                      <button @click="removeModulo(periodo, mIdx)" class="w-full px-2 py-2 rounded bg-red-900/40 border border-red-800 text-red-300 font-semibold">Quitar módulo</button>
+                    </div>
                   </div>
 
-                  <div v-for="(ra, rIdx) in modulo.RAs" :key="ra.id" class="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs mb-1 pl-2">
-                    <input v-model="ra.Descripcion_RA" placeholder="RA (ej. RA1: Identifica...)" class="field md:col-span-3" />
-                    <select v-model="ra.Modo_RA" class="field md:col-span-1">
-                      <option value="empresa">Completo en empresa</option>
-                      <option value="compartido">Compartido centro/empresa</option>
-                    </select>
-                    <button @click="removeRA(modulo, rIdx)" class="px-2 py-1 rounded bg-red-900/40 border border-red-800 text-red-300">Quitar</button>
+                  <div v-for="(ra, rIdx) in modulo.RAs" :key="ra.id" class="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs mb-2 pl-2 items-end">
+                    <div class="md:col-span-3">
+                      <span class="field-label">Resultado de aprendizaje (RA)</span>
+                      <input v-model="ra.Descripcion_RA" placeholder="RA (ej. RA1: Identifica...)" class="field" />
+                    </div>
+                    <div class="md:col-span-1">
+                      <span class="field-label">Modalidad</span>
+                      <select v-model="ra.Modo_RA" class="field">
+                        <option value="empresa">Completo en empresa</option>
+                        <option value="compartido">Compartido centro/empresa</option>
+                      </select>
+                    </div>
+                    <div class="md:col-span-1">
+                      <button @click="removeRA(modulo, rIdx)" class="w-full px-2 py-2 rounded bg-red-900/40 border border-red-800 text-red-300 font-semibold">Quitar RA</button>
+                    </div>
                   </div>
                     <button @click="addRA(modulo)" class="mt-1 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-[10px]">Añadir RA</button>
                 </div>
@@ -2355,6 +2371,79 @@
           modulo.RAs.push({ id: this.nuevoIdLocal('ra'), Descripcion_RA: '', Modo_RA: 'empresa' });
         },
         removeRA(modulo, idx) { modulo.RAs.splice(idx, 1); },
+        cloneModuloForBulk(modulo) {
+          return {
+            id: this.nuevoIdLocal('mod'),
+            Nombre_Modulo: (modulo && modulo.Nombre_Modulo) || '',
+            Codigo_Modulo: (modulo && modulo.Codigo_Modulo) || '',
+            RAs: (Array.isArray(modulo && modulo.RAs) ? modulo.RAs : []).map((ra) => ({
+              id: this.nuevoIdLocal('ra'),
+              Descripcion_RA: (ra && ra.Descripcion_RA) || '',
+              Modo_RA: (ra && ra.Modo_RA) || 'empresa'
+            }))
+          };
+        },
+        buildPeriodoForBulkFromSource(sourcePeriodo) {
+          return {
+            id: this.nuevoIdLocal('per'),
+            EmpresaId: (sourcePeriodo && sourcePeriodo.EmpresaId) || '',
+            TutorEmpresaId: (sourcePeriodo && sourcePeriodo.TutorEmpresaId) || '',
+            Fecha_Inicio_Periodo: (sourcePeriodo && sourcePeriodo.Fecha_Inicio_Periodo) || '',
+            Fecha_Fin_Periodo: (sourcePeriodo && sourcePeriodo.Fecha_Fin_Periodo) || '',
+            Dias_Periodo: Array.isArray(sourcePeriodo && sourcePeriodo.Dias_Periodo) ? sourcePeriodo.Dias_Periodo.slice() : [],
+            Horario_Periodo: JSON.parse(JSON.stringify((sourcePeriodo && sourcePeriodo.Horario_Periodo) || {})),
+            Horas_Semana_Periodo: Number((sourcePeriodo && sourcePeriodo.Horas_Semana_Periodo) || 0),
+            Horas_Totales_Periodo: Number((sourcePeriodo && sourcePeriodo.Horas_Totales_Periodo) || 0),
+            Modulos: []
+          };
+        },
+        async applyBulkModulosRasLocally(targetIds) {
+          const sourceStudent = this.students.find((x) => x.id === this.bulkModulosSourceStudentId);
+          if (!sourceStudent) throw new Error('SOURCE_STUDENT_NOT_FOUND');
+          const sourcePeriodos = Array.isArray(sourceStudent.Periodos) ? sourceStudent.Periodos : [];
+          if (!sourcePeriodos.length) throw new Error('SOURCE_STUDENT_WITHOUT_PERIODS');
+          const sourcePeriodo = this.bulkModulosSourcePeriodoId
+            ? sourcePeriodos.find((x) => x.id === this.bulkModulosSourcePeriodoId)
+            : (sourcePeriodos.find((p) => Array.isArray(p.Modulos) && p.Modulos.length) || sourcePeriodos[0]);
+          if (!sourcePeriodo) throw new Error('SOURCE_PERIODO_NOT_FOUND');
+          if (!Array.isArray(sourcePeriodo.Modulos) || !sourcePeriodo.Modulos.length) throw new Error('SOURCE_PERIODO_WITHOUT_MODULOS');
+
+          const sourceModulos = sourcePeriodo.Modulos.map((modulo) => this.cloneModuloForBulk(modulo));
+          let updatedStudents = 0;
+          let updatedPeriodos = 0;
+          let createdPeriodos = 0;
+
+          const ids = Array.isArray(targetIds) && targetIds.length ? targetIds : this.selectedStudentIds;
+          for (const studentId of ids) {
+            const student = this.students.find((s) => s.id === studentId);
+            if (!student) continue;
+
+            const payload = JSON.parse(JSON.stringify(student));
+            if (!Array.isArray(payload.Periodos)) payload.Periodos = [];
+            if (!payload.Periodos.length) {
+              payload.Periodos.push(this.buildPeriodoForBulkFromSource(sourcePeriodo));
+              createdPeriodos += 1;
+            }
+
+            payload.Periodos = payload.Periodos.map((periodo) => ({
+              ...periodo,
+              Modulos: sourceModulos.map((modulo) => ({
+                ...modulo,
+                id: this.nuevoIdLocal('mod'),
+                RAs: modulo.RAs.map((ra) => ({ ...ra, id: this.nuevoIdLocal('ra') }))
+              }))
+            }));
+
+            const data = await this.postToServer('upsert_student', payload);
+            if (data && data.student) {
+              this.upsertLocal(this.students, data.student, 'id');
+              updatedStudents += 1;
+              updatedPeriodos += Array.isArray(data.student.Periodos) ? data.student.Periodos.length : payload.Periodos.length;
+            }
+          }
+
+          return { updatedStudents, updatedPeriodos, createdPeriodos };
+        },
 
         editStudent(s) { this.studentForm = { ...this.studentForm, ...JSON.parse(JSON.stringify(s || {})) }; this.studentFormOpen = true; this.activeTab = 'students'; },
         cancelStudentForm() { this.startNewStudent(false); },
@@ -2500,12 +2589,28 @@
               });
               if (Array.isArray(data.students)) this.students = data.students;
               const skipped = Number(data.skippedWithoutPeriods) || 0;
-              const msg = skipped
-                ? `Módulos/RAs copiados. Alumnos actualizados: ${data.updatedStudents}. Periodos actualizados: ${data.updatedPeriodos}. Sin periodos: ${skipped}.`
-                : `Módulos/RAs copiados. Alumnos actualizados: ${data.updatedStudents}. Periodos actualizados: ${data.updatedPeriodos}.`;
+              if (skipped > 0) {
+                const missingPeriodoIds = this.selectedStudentIds.filter((studentId) => {
+                  const student = this.students.find((s) => s.id === studentId);
+                  return !student || !Array.isArray(student.Periodos) || student.Periodos.length === 0;
+                });
+                const fallback = await this.applyBulkModulosRasLocally(missingPeriodoIds);
+                const totalStudents = Number(data.updatedStudents || 0) + Number(fallback.updatedStudents || 0);
+                const totalPeriodos = Number(data.updatedPeriodos || 0) + Number(fallback.updatedPeriodos || 0);
+                const msg = `Módulos/RAs copiados. Alumnos actualizados: ${totalStudents}. Periodos actualizados: ${totalPeriodos}. Periodos creados: ${fallback.createdPeriodos}.`;
+                this.showToast('success', msg);
+                return;
+              }
+              const msg = `Módulos/RAs copiados. Alumnos actualizados: ${data.updatedStudents}. Periodos actualizados: ${data.updatedPeriodos}.`;
               this.showToast('success', msg);
             } catch (err) {
               const code = (err && err.message) ? err.message : 'ERROR';
+              if (this.isNonJson404Error(err)) {
+                const fallback = await this.applyBulkModulosRasLocally();
+                const msg = `Módulos/RAs copiados en modo compatibilidad. Alumnos actualizados: ${fallback.updatedStudents}. Periodos actualizados: ${fallback.updatedPeriodos}. Periodos creados: ${fallback.createdPeriodos}.`;
+                this.showToast('success', msg);
+                return;
+              }
               if (code === 'SOURCE_STUDENT_REQUIRED') { this.showToast('error', 'Debes indicar un alumno origen.'); return; }
               if (code === 'SOURCE_STUDENT_NOT_FOUND') { this.showToast('error', 'El alumno origen ya no existe. Recarga los datos.'); return; }
               if (code === 'SOURCE_STUDENT_WITHOUT_PERIODS') { this.showToast('error', 'El alumno origen no tiene periodos.'); return; }
