@@ -636,9 +636,10 @@
               <select v-model="bulkCompanyField" @change="bulkCompanyValue = ''" class="field">
                 <option value="">Selecciona campo</option>
                 <option v-for="f in bulkCompanyFieldDefs" :key="f.key" :value="f.key">{{ f.label }}</option>
+                <option v-if="isAdmin" value="__delete__">Eliminar empresas seleccionadas</option>
               </select>
             </div>
-            <div v-if="bulkCompanyField">
+            <div v-if="bulkCompanyField && bulkCompanyField !== '__delete__'">
               <span class="field-label">Nuevo valor</span>
               <input v-if="bulkFieldType(bulkCompanyFieldDefs, bulkCompanyField) === 'text'" v-model="bulkCompanyValue" class="field" />
               <select v-else-if="bulkFieldType(bulkCompanyFieldDefs, bulkCompanyField) === 'cursoAcademico'" v-model="bulkCompanyValue" class="field">
@@ -647,8 +648,8 @@
               </select>
             </div>
             <button @click="applyBulkCompanyEdit" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-sm transition">
-              <i class="ph ph-check text-base"></i>
-              <span>Aplicar a {{ selectedCompanyIds.length }} empresa/s</span>
+              <i :class="bulkCompanyField === '__delete__' ? 'ph ph-trash text-base' : 'ph ph-check text-base'"></i>
+              <span>{{ bulkCompanyField === '__delete__' ? `Eliminar ${selectedCompanyIds.length} empresa/s` : `Aplicar a ${selectedCompanyIds.length} empresa/s` }}</span>
             </button>
             <button @click="selectedCompanyIds = []" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white font-bold transition">
               <i class="ph ph-x text-sm"></i>
@@ -2951,6 +2952,10 @@
         },
         async applyBulkCompanyEdit() {
           if (!this.bulkCompanyField) { this.showToast('error', 'Elige que campo quieres cambiar.'); return; }
+          if (this.bulkCompanyField === '__delete__') {
+            await this.applyBulkCompanyDelete();
+            return;
+          }
           await this.runBusy(`Actualizando ${this.selectedCompanyIds.length} empresa/s...`, async () => {
             try {
               const data = await this.postToServer('bulk_update_companies', {
@@ -2966,6 +2971,25 @@
                 return;
               }
               this.lastSyncError = `Fallo en la edicion masiva: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+        async applyBulkCompanyDelete() {
+          if (!this.isAdmin || !this.selectedCompanyIds.length) return;
+          if (!confirm(`Eliminar ${this.selectedCompanyIds.length} empresa/s seleccionadas? Se desvincularan sus periodos de FFE y se eliminaran sus documentos.`)) return;
+          await this.runBusy(`Eliminando ${this.selectedCompanyIds.length} empresa/s...`, async () => {
+            try {
+              const data = await this.postToServer('bulk_delete_companies', { ids: this.selectedCompanyIds });
+              if (Array.isArray(data.companies)) this.companies = data.companies;
+              if (Array.isArray(data.students)) this.students = data.students;
+              if (Array.isArray(data.documents)) this.documents = data.documents;
+              this.showToast('success', `${data.eliminadas} empresa/s eliminadas.`);
+              this.selectedCompanyIds = [];
+              this.bulkCompanyField = '';
+              this.bulkCompanyValue = '';
+            } catch (err) {
+              this.lastSyncError = `Fallo eliminando empresas: ${err.message || 'ERROR'}`;
               this.showToast('error', this.lastSyncError);
             }
           });
