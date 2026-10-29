@@ -1859,8 +1859,8 @@
           this.downloadTextFile('plantilla_alumnado_ffe.csv', `${header.join(',')}\n${example.join(',')}\n`);
         },
         downloadCompaniesTemplateCsv() {
-          const header = ['Nombre_Empresa','NIF_Empresa','Actividad_Empresa','Base_Normativa_Empresa','Calle_Empresa','Localidad_Empresa','Provincia_Empresa','Pais_Empresa','CP_Empresa','Nombre_Representante_Empresa','Cargo_Representante_Empresa','Observaciones_Empresa'];
-          const example = ['Tecno Sur SL','B12345678','Tecnologia','Real Decreto 1529/2012','Calle Mayor 1','Badajoz','Badajoz','Espana','06001','Laura Gomez','Directora RRHH','Empresa colaboradora'];
+          const header = ['Nombre_Empresa','NIF_Empresa','Actividad_Empresa','Base_Normativa_Empresa','ID_Convenio','Calle_Empresa','Localidad_Empresa','Provincia_Empresa','Pais_Empresa','CP_Empresa','Nombre_Representante_Empresa','Cargo_Representante_Empresa','Observaciones_Empresa','Tutor1_Nombre','Tutor1_Apellidos','Tutor1_DNI','Tutor1_Email','Tutor1_Telefono','Tutor2_Nombre','Tutor2_Apellidos','Tutor2_DNI','Tutor2_Email','Tutor2_Telefono'];
+          const example = ['Tecno Sur SL','B12345678','Tecnologia','Real Decreto 1529/2012','001CM','Calle Mayor 1','Badajoz','Badajoz','Espana','06001','Laura Gomez','Directora RRHH','Empresa colaboradora','Marta','Perez','12345678A','marta@tecnosur.es','600000001','Juan','Diaz','87654321B','juan@tecnosur.es','600000002'];
           this.downloadTextFile('plantilla_empresas_ffe.csv', `${header.join(',')}\n${example.join(',')}\n`);
         },
         downloadConvenioLog() {
@@ -1978,7 +1978,14 @@
             Nombre_Representante_Empresa: this.pickCsv(row, ['Nombre_Representante_Empresa','representante']),
             Cargo_Representante_Empresa: this.pickCsv(row, ['Cargo_Representante_Empresa','cargo_representante']),
             Observaciones_Empresa: this.pickCsv(row, ['Observaciones_Empresa','observaciones']),
-            TutoresEmpresa: []
+            ID_Convenio: this.pickCsv(row, ['ID_Convenio','numero_convenio','n_convenio']),
+            TutoresEmpresa: [1, 2].map((number) => ({
+              Nombre_Tutor: this.pickCsv(row, [`Tutor${number}_Nombre`]),
+              Apellidos_Tutor: this.pickCsv(row, [`Tutor${number}_Apellidos`]),
+              DNI_Tutor: this.pickCsv(row, [`Tutor${number}_DNI`]),
+              Email_Tutor: this.pickCsv(row, [`Tutor${number}_Email`]),
+              Telefono_Tutor: this.pickCsv(row, [`Tutor${number}_Telefono`])
+            }))
           };
         },
         async importStudentsFromFile(event) {
@@ -2027,30 +2034,27 @@
           if (!file) return;
           this.lastSyncError = '';
           await this.runBusy('Importando empresas...', async () => {
-            let imported = 0; let omitidos = 0;
-            const errorCounts = {};
             try {
               const text = await file.text();
               const objects = this.csvRowsToObjects(this.parseCsv(text));
               if (objects.length === 0) throw new Error('CSV_SIN_FILAS');
-              for (let i = 0; i < objects.length; i += 1) {
-                const payload = this.mapCompanyCsvRow(objects[i]);
-                if (!payload.Nombre_Empresa) { omitidos += 1; continue; }
-                try {
-                  const data = await this.postToServer('upsert_company', payload);
-                  this.upsertLocal(this.companies, data.company, 'id');
-                  imported += 1;
-                } catch (err) {
-                  const code = (err && err.message) ? err.message : 'ERROR_DESCONOCIDO';
-                  errorCounts[code] = (errorCounts[code] || 0) + 1;
-                }
+              const items = objects.map((row) => this.mapCompanyCsvRow(row));
+              const data = await this.postToServer('bulk_import_companies', { items });
+              const errores = Array.isArray(data.errores) ? data.errores : [];
+              if (errores.length) {
+                const detalle = errores.map((error) => {
+                  const empresa = error.nombre || 'sin nombre';
+                  const nif = error.nif ? `, NIF ${error.nif}` : '';
+                  const convenio = error.idConvenio ? `, convenio ${error.idConvenio}` : '';
+                  return `Fila ${(Number(error.index) || 0) + 2}: ${empresa}${nif}${convenio}. ${error.error}`;
+                }).join('\n');
+                const msg = `No se ha importado ninguna empresa. Incongruencias detectadas:\n${detalle}`;
+                this.lastSyncError = msg;
+                this.showToast('error', msg);
+                return;
               }
-              const failed = Object.values(errorCounts).reduce((a, b) => a + b, 0);
-              const motivos = Object.entries(errorCounts).map(([code, n]) => `${code} (${n})`).join(', ');
-              const resumen = `Importacion completada. Correctas: ${imported}. Fallidas: ${failed}. Omitidas sin nombre: ${omitidos}.`;
-              const detalle = motivos ? `\nMotivo(s): ${motivos}` : '';
-              this.showToast(failed > 0 ? 'error' : 'success', resumen + detalle);
-              this.lastSyncError = failed > 0 ? `${resumen} ${detalle}`.trim() : '';
+              if (Array.isArray(data.companies)) this.companies = data.companies;
+              this.showToast('success', `Importacion completada. Empresas creadas: ${data.imported || 0}.`);
             } catch (err) {
               const msg = `Error en importacion de empresas: ${err.message || 'CSV_INVALIDO'}`;
               this.lastSyncError = msg;
