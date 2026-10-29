@@ -621,6 +621,10 @@
                 <span>Subir CSV empresas</span>
                 <input type="file" accept=".csv,text/csv" class="hidden" @change="importCompaniesFromCsv" />
               </label>
+              <button v-if="lastCompanyImportLog" @click="downloadCompanyImportErrorLog" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-950/50 hover:bg-amber-900/70 border border-amber-700 text-amber-200 text-xs font-bold shadow-sm transition">
+                <i class="ph ph-warning-circle text-base text-amber-400"></i>
+                <span>Log errores ({{ lastCompanyImportLog.errores.length }})</span>
+              </button>
             </div>
           </div>
           <p class="text-[11px] text-slate-400 mb-3">Los tutores de empresa se añaden desde la ficha de cada empresa.</p>
@@ -1325,7 +1329,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbx1d3qQrfbwmN-UQNepnOf-BGc8T_guGuQNOL0gy2uhjUl1S4Cya-TRXuObecbo_lBL/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbydtkIGMor-nTHy0ztpbhEwifcqykgjm2GIxcDHAoGM3H_wlSptjufH_dr-IRw9a6BO/exec';
                             
     const { createApp } = Vue;
 
@@ -1396,6 +1400,7 @@
 
           selectedStudentIds: [],
           lastImportLog: null,
+          lastCompanyImportLog: null,
           bulkStudentField: '',
           bulkStudentValue: '',
           bulkModulosSourceStudentId: '',
@@ -1859,7 +1864,7 @@
           this.downloadTextFile('plantilla_alumnado_ffe.csv', `${header.join(',')}\n${example.join(',')}\n`);
         },
         downloadCompaniesTemplateCsv() {
-          const header = ['Nombre_Empresa','NIF_Empresa','Actividad_Empresa','Base_Normativa_Empresa','ID_Convenio','Calle_Empresa','Localidad_Empresa','Provincia_Empresa','Pais_Empresa','CP_Empresa','Nombre_Representante_Empresa','Cargo_Representante_Empresa','Observaciones_Empresa','Tutor1_Nombre','Tutor1_Apellidos','Tutor1_DNI','Tutor1_Email','Tutor1_Telefono','Tutor2_Nombre','Tutor2_Apellidos','Tutor2_DNI','Tutor2_Email','Tutor2_Telefono'];
+          const header = ['Nombre_Empresa','NIF_Empresa','Actividad_Empresa','Base_Normativa_Empresa','Numero_Convenio','Calle_Empresa','Localidad_Empresa','Provincia_Empresa','Pais_Empresa','CP_Empresa','Nombre_Representante_Empresa','Cargo_Representante_Empresa','Observaciones_Empresa','Tutor1_Nombre','Tutor1_Apellidos','Tutor1_DNI','Tutor1_Email','Tutor1_Telefono','Tutor2_Nombre','Tutor2_Apellidos','Tutor2_DNI','Tutor2_Email','Tutor2_Telefono'];
           const example = ['Tecno Sur SL','B12345678','Tecnologia','Real Decreto 1529/2012','001CM','Calle Mayor 1','Badajoz','Badajoz','Espana','06001','Laura Gomez','Directora RRHH','Empresa colaboradora','Marta','Perez','12345678A','marta@tecnosur.es','600000001','Juan','Diaz','87654321B','juan@tecnosur.es','600000002'];
           this.downloadTextFile('plantilla_empresas_ffe.csv', `${header.join(',')}\n${example.join(',')}\n`);
         },
@@ -2033,6 +2038,7 @@
           const file = event && event.target && event.target.files ? event.target.files[0] : null;
           if (!file) return;
           this.lastSyncError = '';
+          this.lastCompanyImportLog = null;
           await this.runBusy('Importando empresas...', async () => {
             try {
               const text = await file.text();
@@ -2042,6 +2048,8 @@
               const data = await this.postToServer('bulk_import_companies', { items });
               const errores = Array.isArray(data.errores) ? data.errores : [];
               if (errores.length) {
+                this.lastCompanyImportLog = { errores, fecha: new Date().toLocaleString('es-ES') };
+                this.downloadCompanyImportErrorLog();
                 const detalle = errores.map((error) => {
                   const empresa = error.nombre || 'sin nombre';
                   const nif = error.nif ? `, NIF ${error.nif}` : '';
@@ -2910,6 +2918,36 @@
           ].join(','));
           const contenido = `Log de importacion de alumnado - ${this.lastImportLog.fecha}\n${header.join(',')}\n${filas.join('\n')}\n`;
           this.downloadTextFile(`log_importacion_alumnado_${Date.now()}.csv`, contenido);
+        },
+        downloadCompanyImportErrorLog() {
+          if (!this.lastCompanyImportLog || !this.lastCompanyImportLog.errores.length) return;
+          const grouped = {};
+          this.lastCompanyImportLog.errores.forEach((error) => {
+            const key = String(error.index);
+            if (!grouped[key]) {
+              grouped[key] = {
+                index: Number(error.index),
+                nombre: error.nombre || '',
+                nif: error.nif || '',
+                idConvenio: error.idConvenio || '',
+                motivos: []
+              };
+            }
+            if (error.error && !grouped[key].motivos.includes(error.error)) grouped[key].motivos.push(error.error);
+          });
+          const csvCell = (value) => `"${(value || '').toString().replace(/"/g, '""')}"`;
+          const header = ['Fila', 'Nombre_Empresa', 'NIF_Empresa', 'Numero_Convenio', 'Motivos'];
+          const filas = Object.values(grouped)
+            .sort((a, b) => a.index - b.index)
+            .map((error) => [
+              error.index + 2,
+              error.nombre,
+              error.nif,
+              error.idConvenio,
+              error.motivos.join(' | ')
+            ].map(csvCell).join(','));
+          const contenido = `Log de importacion de empresas - ${this.lastCompanyImportLog.fecha}\n${header.join(',')}\n${filas.join('\n')}\n`;
+          this.downloadTextFile(`log_importacion_empresas_${Date.now()}.csv`, contenido);
         },
         async applyBulkCompanyEdit() {
           if (!this.bulkCompanyField) { this.showToast('error', 'Elige que campo quieres cambiar.'); return; }
