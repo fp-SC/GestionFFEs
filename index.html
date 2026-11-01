@@ -1621,8 +1621,7 @@
           return this.students.filter((s) => (s.CursoAcademicoId || '') === this.selectedCursoAcademicoId);
         },
         companiesDelCurso() {
-          if (!this.selectedCursoAcademicoId) return this.companies;
-          return this.companies.filter((c) => (c.CursoAcademicoId || '') === this.selectedCursoAcademicoId);
+          return this.companies;
         },
         filteredStudents() {
           const q = (this.studentQuery || '').toLowerCase().trim();
