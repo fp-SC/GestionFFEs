@@ -793,6 +793,7 @@
                   <th class="p-2 text-left">Tipo</th>
                   <th class="p-2 text-left">Alumno/a</th>
                   <th class="p-2 text-left">Empresa</th>
+                  <th class="p-2 text-left">Firmas</th>
                   <th class="p-2 text-left">Fecha</th>
                   <th class="p-2 text-left">Acciones</th>
                 </tr>
@@ -802,6 +803,7 @@
                   <td class="p-2"><span class="px-2 py-1 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-semibold">{{ d.Tipo_Documento }}</span></td>
                   <td class="p-2 font-medium">{{ studentNameById(d.StudentId) }}</td>
                   <td class="p-2 font-medium">{{ companyNameById(d.CompanyId) }}</td>
+                  <td class="p-2"><span class="px-2 py-1 rounded border font-semibold" :class="documentSignatureClass(d)">{{ documentSignatureLabel(d) }}</span><div v-if="documentPendingSigners(d)" class="mt-1 text-slate-400">Falta: {{ documentPendingSigners(d) }}</div></td>
                   <td class="p-2">{{ formatDateTime(d.generatedAt) }}<div class="text-slate-400">{{ d.uploadSource === 'manual' ? 'Subido por' : 'Generado por' }} {{ d.generatedBy }}</div></td>
                   <td class="p-2">
                     <div class="flex gap-1.5">
@@ -809,6 +811,10 @@
                         <i class="ph ph-file text-red-400"></i>
                         <span>Abrir archivo</span>
                       </a>
+                      <button v-if="canDeleteDocument(d)" @click="openDocumentSignatureForm(d)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-950/60 hover:bg-amber-900 text-amber-200 hover:text-white border border-amber-700/70 text-xs font-semibold transition">
+                        <i class="ph ph-pen-nib text-amber-300"></i>
+                        <span>Firmas</span>
+                      </button>
                       <button v-if="canDeleteDocument(d)" @click="removeDocument(d)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800/80 hover:border-red-500 text-xs font-semibold transition">
                         <i class="ph ph-trash"></i>
                         <span>Eliminar</span>
@@ -816,7 +822,7 @@
                     </div>
                   </td>
                 </tr>
-                <tr v-if="filteredDocuments.length === 0"><td colspan="5" class="p-4 text-center text-slate-400">No hay documentos que coincidan con la busqueda.</td></tr>
+                <tr v-if="filteredDocuments.length === 0"><td colspan="6" class="p-4 text-center text-slate-400">No hay documentos que coincidan con la busqueda.</td></tr>
               </tbody>
             </table>
           </div>
@@ -859,6 +865,26 @@
                 <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
               </select>
             </div>
+            <div>
+              <span class="field-label">Estado de firma</span>
+              <select v-model="uploadDocForm.estadoFirma" class="field">
+                <option value="PENDIENTE_FIRMA">Pendiente de firma</option>
+                <option value="PARCIALMENTE_FIRMADO">Parcialmente firmado</option>
+                <option value="FIRMADO">Firmado</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Método de firma</span>
+              <select v-model="uploadDocForm.metodoFirma" class="field">
+                <option value="">Sin indicar</option>
+                <option value="DIGITAL">Digital</option>
+                <option value="MANUAL">Manual</option>
+              </select>
+            </div>
+            <div v-if="uploadDocForm.estadoFirma !== 'FIRMADO'">
+              <span class="field-label">Pendiente de firma por</span>
+              <input v-model="uploadDocForm.firmantesPendientes" placeholder="Nombres o cargos separados por comas" class="field" />
+            </div>
           </div>
           <p class="mt-3 text-[11px] text-slate-400">Asocia el archivo a un alumno/a, a una empresa o a ambos.</p>
           <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end gap-2.5">
@@ -870,6 +896,45 @@
               <i class="ph ph-upload-simple text-base"></i>
               <span>Subir archivo</span>
             </button>
+          </div>
+        </div>
+
+        <div v-if="signatureDocFormOpen" ref="signatureDocFormSection" class="bg-[#070e1e]/90 border border-amber-900/60 rounded-xl p-4">
+          <h3 class="font-bold mb-1">Firmas del documento</h3>
+          <p class="mb-3 text-xs text-slate-400">{{ signatureDocForm.fileName }}</p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div>
+              <span class="field-label">Estado de firma</span>
+              <select v-model="signatureDocForm.estadoFirma" class="field">
+                <option value="PENDIENTE_FIRMA">Pendiente de firma</option>
+                <option value="PARCIALMENTE_FIRMADO">Parcialmente firmado</option>
+                <option value="FIRMADO">Firmado</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Método de firma</span>
+              <select v-model="signatureDocForm.metodoFirma" class="field">
+                <option value="">Sin indicar</option>
+                <option value="DIGITAL">Digital</option>
+                <option value="MANUAL">Manual</option>
+              </select>
+            </div>
+            <div v-if="signatureDocForm.estadoFirma !== 'FIRMADO'">
+              <span class="field-label">Pendiente de firma por</span>
+              <input v-model="signatureDocForm.firmantesPendientes" placeholder="Nombres o cargos separados por comas" class="field" />
+            </div>
+            <div class="md:col-span-3">
+              <span class="field-label">Sustituir por archivo firmado</span>
+              <label class="field flex items-center gap-2 cursor-pointer text-slate-300 hover:border-amber-400">
+                <i class="ph ph-file-arrow-up text-base text-amber-300"></i>
+                <span class="truncate">{{ signatureDocFile ? signatureDocFile.name : 'Seleccionar versión firmada (opcional)' }}</span>
+                <input ref="signatureDocumentFile" type="file" class="hidden" @change="onSignatureDocumentFileChange" />
+              </label>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end gap-2.5">
+            <button @click="closeDocumentSignatureForm" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white text-xs font-bold transition"><i class="ph ph-x text-sm"></i><span>Cancelar</span></button>
+            <button @click="saveDocumentSignature" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition"><i class="ph ph-floppy-disk text-base"></i><span>{{ signatureDocFile ? 'Sustituir y marcar firmado' : 'Guardar firmas' }}</span></button>
           </div>
         </div>
 
@@ -1505,7 +1570,10 @@
           genDocFormOpen: false,
           uploadDocFormOpen: false,
           uploadDocFile: null,
-          uploadDocForm: { tipo: '', tipoNuevo: '', studentId: '', companyId: '' },
+          uploadDocForm: { tipo: '', tipoNuevo: '', studentId: '', companyId: '', estadoFirma: 'PENDIENTE_FIRMA', metodoFirma: '', firmantesPendientes: '' },
+          signatureDocFormOpen: false,
+          signatureDocFile: null,
+          signatureDocForm: { id: '', fileName: '', estadoFirma: 'PENDIENTE_FIRMA', metodoFirma: '', firmantesPendientes: '' },
 
           studentForm: {},
           companyForm: {},
@@ -1749,6 +1817,21 @@
           const d = new Date(iso);
           if (isNaN(d.getTime())) return iso;
           return d.toLocaleString('es-ES');
+        },
+        documentSignatureLabel(document) {
+          const status = (document && document.Estado_Firma) || 'PENDIENTE_FIRMA';
+          const labels = { PENDIENTE_FIRMA: 'Pendiente de firma', PARCIALMENTE_FIRMADO: 'Parcialmente firmado', FIRMADO: 'Firmado' };
+          const method = document && document.Metodo_Firma ? ` · ${document.Metodo_Firma === 'DIGITAL' ? 'Digital' : 'Manual'}` : '';
+          return `${labels[status] || labels.PENDIENTE_FIRMA}${method}`;
+        },
+        documentSignatureClass(document) {
+          const status = (document && document.Estado_Firma) || 'PENDIENTE_FIRMA';
+          if (status === 'FIRMADO') return 'bg-emerald-500/20 border-emerald-500/40 text-emerald-200';
+          if (status === 'PARCIALMENTE_FIRMADO') return 'bg-amber-500/20 border-amber-500/40 text-amber-200';
+          return 'bg-slate-500/20 border-slate-500/40 text-slate-200';
+        },
+        documentPendingSigners(document) {
+          return (document && document.Firmantes_Pendientes) || '';
         },
         parseCsv(text) {
           const rows = []; let row = []; let cell = ''; let inQuotes = false;
@@ -3414,7 +3497,7 @@
           });
         },
         openUploadDocumentForm() {
-          this.uploadDocForm = { tipo: '', tipoNuevo: '', studentId: '', companyId: '' };
+          this.uploadDocForm = { tipo: '', tipoNuevo: '', studentId: '', companyId: '', estadoFirma: 'PENDIENTE_FIRMA', metodoFirma: '', firmantesPendientes: '' };
           this.uploadDocFile = null;
           this.uploadDocFormOpen = true;
           this.scrollToRef('uploadDocFormSection');
@@ -3450,7 +3533,10 @@
                 companyId: this.uploadDocForm.companyId,
                 fileName: this.uploadDocFile.name,
                 mimeType: this.uploadDocFile.type,
-                base64
+                base64,
+                Estado_Firma: this.uploadDocForm.estadoFirma,
+                Metodo_Firma: this.uploadDocForm.metodoFirma,
+                Firmantes_Pendientes: this.uploadDocForm.firmantesPendientes
               });
               if (data && data.document) this.documents.push(data.document);
               this.closeUploadDocumentForm();
@@ -3468,6 +3554,66 @@
                 OWNERSHIP_REQUIRED: 'No tienes permiso para asociar documentos a este alumno/a.'
               };
               this.lastSyncError = messages[code] || `Fallo subiendo documento: ${code}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+        openDocumentSignatureForm(document) {
+          this.signatureDocForm = {
+            id: document.id,
+            fileName: document.fileName || '',
+            estadoFirma: document.Estado_Firma || 'PENDIENTE_FIRMA',
+            metodoFirma: document.Metodo_Firma || '',
+            firmantesPendientes: document.Firmantes_Pendientes || ''
+          };
+          this.signatureDocFile = null;
+          this.signatureDocFormOpen = true;
+          this.scrollToRef('signatureDocFormSection');
+        },
+        closeDocumentSignatureForm() {
+          this.signatureDocFormOpen = false;
+          this.signatureDocFile = null;
+          if (this.$refs.signatureDocumentFile) this.$refs.signatureDocumentFile.value = '';
+        },
+        onSignatureDocumentFileChange(event) {
+          this.signatureDocFile = event && event.target && event.target.files ? event.target.files[0] : null;
+        },
+        async saveDocumentSignature() {
+          if (this.signatureDocFile && this.signatureDocFile.size > 10 * 1024 * 1024) { this.showToast('error', 'El archivo no puede superar 10 MB.'); return; }
+          const replacingSignedFile = !!this.signatureDocFile;
+          await this.runBusy(replacingSignedFile ? 'Sustituyendo documento firmado...' : 'Guardando estado de firmas...', async () => {
+            try {
+              let data;
+              if (this.signatureDocFile) {
+                const base64 = await this.readFileAsBase64(this.signatureDocFile);
+                data = await this.postToServer('replace_document_file', {
+                  id: this.signatureDocForm.id,
+                  fileName: this.signatureDocFile.name,
+                  mimeType: this.signatureDocFile.type,
+                  base64,
+                  Metodo_Firma: this.signatureDocForm.metodoFirma
+                });
+              } else {
+                data = await this.postToServer('update_document_signature', {
+                  id: this.signatureDocForm.id,
+                  Estado_Firma: this.signatureDocForm.estadoFirma,
+                  Metodo_Firma: this.signatureDocForm.metodoFirma,
+                  Firmantes_Pendientes: this.signatureDocForm.firmantesPendientes
+                });
+              }
+              if (data && data.document) this.upsertLocal(this.documents, data.document, 'id');
+              this.closeDocumentSignatureForm();
+              this.showToast('success', replacingSignedFile ? 'Documento firmado sustituido correctamente.' : 'Estado de firmas actualizado.');
+            } catch (err) {
+              const code = (err && err.message) || 'ERROR';
+              const messages = {
+                DOCUMENT_FILE_REQUIRED: 'Selecciona un archivo firmado.',
+                DOCUMENT_FILE_INVALID: 'El archivo no se pudo leer.',
+                DOCUMENT_FILE_TOO_LARGE: 'El archivo no puede superar 10 MB.',
+                DOCUMENT_SIGNATURE_FORBIDDEN: 'No tienes permiso para modificar las firmas de este documento.',
+                DOCUMENT_NOT_FOUND: 'El documento ya no existe.'
+              };
+              this.lastSyncError = messages[code] || `Fallo actualizando firmas: ${code}`;
               this.showToast('error', this.lastSyncError);
             }
           });
