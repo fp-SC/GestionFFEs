@@ -631,6 +631,14 @@
           </div>
           <p class="text-[11px] text-slate-400 mb-3">Los tutores de empresa se añaden desde la ficha de cada empresa.</p>
 
+          <div v-if="isAdmin && companies.length === 0" class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-700/60 bg-amber-950/30 p-3 text-xs text-amber-100">
+            <span>No se han cargado empresas. Puedes buscar una copia anterior en la papelera de Drive.</span>
+            <button @click="recoverCompaniesFromTrash" class="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-800/70 px-3 py-2 font-bold text-amber-50 hover:bg-amber-700 transition">
+              <i class="ph ph-arrow-counter-clockwise text-base"></i>
+              <span>Recuperar empresas</span>
+            </button>
+          </div>
+
           <div v-if="selectedCompanyIds.length" class="mb-3 flex flex-wrap items-end gap-2 bg-[#040914] border border-blue-900/40 rounded-lg p-3 text-xs shadow-md">
             <span class="font-bold text-sky-300 flex items-center gap-1"><i class="ph ph-check-square text-base"></i> {{ selectedCompanyIds.length }} empresa/s seleccionadas</span>
             <div>
@@ -3305,6 +3313,27 @@
               this.showToast('success', `Empresa "${c.Nombre_Empresa}" eliminada.`);
             } catch (err) {
               this.lastSyncError = `Fallo eliminando empresa: ${err.message || 'ERROR'}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+        async recoverCompaniesFromTrash() {
+          if (!this.isAdmin) return;
+          if (!confirm('¿Buscar y restaurar la copia con más empresas encontrada en la papelera de Drive?')) return;
+          await this.runBusy('Buscando copia de empresas en Drive...', async () => {
+            try {
+              const data = await this.postToServer('recover_companies_from_trash', {});
+              this.companies = Array.isArray(data.companies) ? data.companies : [];
+              this.companyQuery = '';
+              this.showToast('success', `${data.restored || this.companies.length} empresa/s recuperada/s correctamente.`);
+            } catch (err) {
+              const code = (err && err.message) || 'ERROR';
+              if (code === 'COMPANY_RECOVERY_NOT_FOUND') {
+                this.lastSyncError = 'No se encontró una copia de empresas recuperable en la papelera de Drive.';
+                this.showToast('error', this.lastSyncError);
+                return;
+              }
+              this.lastSyncError = `Fallo recuperando empresas: ${code}`;
               this.showToast('error', this.lastSyncError);
             }
           });
