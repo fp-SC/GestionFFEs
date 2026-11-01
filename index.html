@@ -491,13 +491,12 @@
 
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs items-end mb-1">
                 <div><span class="field-label">Horas/semana</span><input type="number" min="0" step="0.5" v-model.number="periodo.Horas_Semana_Periodo" class="field" /></div>
-                <div><span class="field-label">Horas totales del periodo</span><input type="number" min="0" step="0.5" v-model.number="periodo.Horas_Totales_Periodo" @input="marcarHorasTotalesManual(periodo)" class="field" /><label class="mt-1 inline-flex items-center gap-1.5 text-[10px] text-slate-300"><input type="checkbox" v-model="periodo.Horas_Totales_Manual" class="rounded border-slate-500 bg-slate-800 text-blue-500 focus:ring-blue-500" /> Mantener ajuste manual</label></div>
+                <div><div class="flex items-center justify-between gap-2"><span class="field-label">Horas totales del periodo</span><label class="inline-flex items-center gap-1 text-[10px] text-slate-300 whitespace-nowrap"><input type="checkbox" v-model="periodo.Horas_Totales_Manual" class="rounded border-slate-500 bg-slate-800 text-blue-500 focus:ring-blue-500" /> Mantener ajuste manual</label></div><input type="number" min="0" step="0.5" v-model.number="periodo.Horas_Totales_Periodo" @input="marcarHorasTotalesManual(periodo)" class="field" /></div>
                 <button @click="recalcularPeriodo(periodo)" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition">
                   <i class="ph ph-calculator text-base"></i>
                   <span>Recalcular horas</span>
                 </button>
               </div>
-              <p class="text-[10px] text-slate-500 mb-3">El cálculo usa el calendario lectivo del curso académico del alumno (festivos configurados en Admin).</p>
 
               <div class="pt-3 border-t border-slate-800">
                 <div class="flex justify-between items-center mb-2">
