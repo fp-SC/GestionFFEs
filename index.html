@@ -763,10 +763,14 @@
       <section v-if="activeTab === 'documents'" class="space-y-4">
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <div class="flex flex-wrap items-center gap-3 mb-4">
-            <h2 class="font-black text-lg text-white">Documentos generados</h2>
+            <h2 class="font-black text-lg text-white">Documentos</h2>
             <button @click="openGenerateDocForm" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-950/50 border border-blue-400/40 transition transform hover:-translate-y-0.5">
               <i class="ph ph-file-pdf text-base"></i>
               <span>Generar documento PDF</span>
+            </button>
+            <button @click="openUploadDocumentForm" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-950/50 border border-indigo-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-upload-simple text-base"></i>
+              <span>Subir documento</span>
             </button>
           </div>
 
@@ -774,7 +778,7 @@
             <input v-model="documentQuery" placeholder="Buscar por alumno o empresa..." class="field md:col-span-2" />
             <select v-model="documentTipoFilter" class="field">
               <option value="">Todos los tipos</option>
-              <option v-for="tipo in documentTiposDisponibles" :key="tipo" :value="tipo">{{ tipo }}</option>
+              <option v-for="tipo in allDocumentTiposDisponibles" :key="tipo" :value="tipo">{{ tipo }}</option>
             </select>
             <button v-if="documentStudentFilter || documentCompanyFilter" @click="documentStudentFilter=''; documentCompanyFilter=''" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 font-bold text-slate-200 transition">
               <i class="ph ph-funnel-x text-sm"></i>
@@ -789,7 +793,7 @@
                   <th class="p-2 text-left">Tipo</th>
                   <th class="p-2 text-left">Alumno/a</th>
                   <th class="p-2 text-left">Empresa</th>
-                  <th class="p-2 text-left">Generado</th>
+                  <th class="p-2 text-left">Fecha</th>
                   <th class="p-2 text-left">Acciones</th>
                 </tr>
               </thead>
@@ -798,12 +802,12 @@
                   <td class="p-2"><span class="px-2 py-1 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-semibold">{{ d.Tipo_Documento }}</span></td>
                   <td class="p-2 font-medium">{{ studentNameById(d.StudentId) }}</td>
                   <td class="p-2 font-medium">{{ companyNameById(d.CompanyId) }}</td>
-                  <td class="p-2">{{ formatDateTime(d.generatedAt) }}<div class="text-slate-400">{{ d.generatedBy }}</div></td>
+                  <td class="p-2">{{ formatDateTime(d.generatedAt) }}<div class="text-slate-400">{{ d.uploadSource === 'manual' ? 'Subido por' : 'Generado por' }} {{ d.generatedBy }}</div></td>
                   <td class="p-2">
                     <div class="flex gap-1.5">
                       <a :href="d.url" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/70 hover:bg-red-900 text-red-200 hover:text-white border border-red-700/70 text-xs font-bold transition cursor-pointer">
-                        <i class="ph ph-file-pdf text-red-400"></i>
-                        <span>Abrir PDF</span>
+                        <i class="ph ph-file text-red-400"></i>
+                        <span>Abrir archivo</span>
                       </a>
                       <button v-if="canDeleteDocument(d)" @click="removeDocument(d)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800/80 hover:border-red-500 text-xs font-semibold transition">
                         <i class="ph ph-trash"></i>
@@ -815,6 +819,57 @@
                 <tr v-if="filteredDocuments.length === 0"><td colspan="5" class="p-4 text-center text-slate-400">No hay documentos que coincidan con la busqueda.</td></tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <div v-if="uploadDocFormOpen" ref="uploadDocFormSection" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h3 class="font-bold mb-3">Subir documento</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div>
+              <span class="field-label">Tipo de documento</span>
+              <select v-model="uploadDocForm.tipo" class="field">
+                <option value="">Selecciona tipo</option>
+                <option v-for="tipo in uploadDocumentTypes" :key="tipo" :value="tipo">{{ tipo }}</option>
+                <option value="__new__">Crear nuevo tipo...</option>
+              </select>
+            </div>
+            <div v-if="uploadDocForm.tipo === '__new__'">
+              <span class="field-label">Nuevo tipo de documento</span>
+              <input v-model="uploadDocForm.tipoNuevo" placeholder="Ej. INFORME_EMPRESA" class="field" />
+            </div>
+            <div>
+              <span class="field-label">Archivo</span>
+              <label class="field flex items-center gap-2 cursor-pointer text-slate-300 hover:border-indigo-400">
+                <i class="ph ph-paperclip text-base text-indigo-300"></i>
+                <span class="truncate">{{ uploadDocFile ? uploadDocFile.name : 'Seleccionar archivo' }}</span>
+                <input ref="uploadDocumentFile" type="file" class="hidden" @change="onUploadDocumentFileChange" />
+              </label>
+            </div>
+            <div>
+              <span class="field-label">Alumno/a</span>
+              <select v-model="uploadDocForm.studentId" class="field">
+                <option value="">Sin alumno/a asociado</option>
+                <option v-for="s in students" :key="s.id" :value="s.id">{{ s.Nombre_Alumno }} {{ s.Apellidos_Alumno }}</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Empresa</span>
+              <select v-model="uploadDocForm.companyId" class="field">
+                <option value="">Sin empresa asociada</option>
+                <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
+              </select>
+            </div>
+          </div>
+          <p class="mt-3 text-[11px] text-slate-400">Asocia el archivo a un alumno/a, a una empresa o a ambos.</p>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end gap-2.5">
+            <button @click="closeUploadDocumentForm" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-600 text-slate-300 hover:text-white text-xs font-bold transition">
+              <i class="ph ph-x text-sm"></i>
+              <span>Cancelar</span>
+            </button>
+            <button @click="uploadDocument" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-950/50 border border-emerald-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-upload-simple text-base"></i>
+              <span>Subir archivo</span>
+            </button>
           </div>
         </div>
 
@@ -1448,6 +1503,9 @@
           studentFormOpen: false,
           companyFormOpen: false,
           genDocFormOpen: false,
+          uploadDocFormOpen: false,
+          uploadDocFile: null,
+          uploadDocForm: { tipo: '', tipoNuevo: '', studentId: '', companyId: '' },
 
           studentForm: {},
           companyForm: {},
@@ -1508,6 +1566,13 @@
         },
         documentTiposDisponibles() {
           return Object.keys(this.docSettings.templates || {}).sort((a, b) => a.localeCompare(b));
+        },
+        allDocumentTiposDisponibles() {
+          const existing = this.documents.map((document) => (document.Tipo_Documento || '').trim()).filter((tipo) => !!tipo);
+          return Array.from(new Set(this.documentTiposDisponibles.concat(existing))).sort((a, b) => a.localeCompare(b));
+        },
+        uploadDocumentTypes() {
+          return this.allDocumentTiposDisponibles;
         },
         filteredDocuments() {
           const q = (this.documentQuery || '').toLowerCase().trim();
@@ -3344,6 +3409,65 @@
                 return;
               }
               this.lastSyncError = `Fallo eliminando documento: ${code}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+        openUploadDocumentForm() {
+          this.uploadDocForm = { tipo: '', tipoNuevo: '', studentId: '', companyId: '' };
+          this.uploadDocFile = null;
+          this.uploadDocFormOpen = true;
+          this.scrollToRef('uploadDocFormSection');
+        },
+        closeUploadDocumentForm() {
+          this.uploadDocFormOpen = false;
+          this.uploadDocFile = null;
+          if (this.$refs.uploadDocumentFile) this.$refs.uploadDocumentFile.value = '';
+        },
+        onUploadDocumentFileChange(event) {
+          this.uploadDocFile = event && event.target && event.target.files ? event.target.files[0] : null;
+        },
+        readFileAsBase64(file) {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve((reader.result || '').toString().split(',')[1] || '');
+            reader.onerror = () => reject(new Error('DOCUMENT_FILE_READ_ERROR'));
+            reader.readAsDataURL(file);
+          });
+        },
+        async uploadDocument() {
+          const tipo = this.uploadDocForm.tipo === '__new__' ? this.uploadDocForm.tipoNuevo : this.uploadDocForm.tipo;
+          if (!tipo || !tipo.trim()) { this.showToast('error', 'Selecciona o crea un tipo de documento.'); return; }
+          if (!this.uploadDocForm.studentId && !this.uploadDocForm.companyId) { this.showToast('error', 'Asocia el documento a un alumno/a, una empresa o ambos.'); return; }
+          if (!this.uploadDocFile) { this.showToast('error', 'Selecciona el archivo que quieres subir.'); return; }
+          if (this.uploadDocFile.size > 10 * 1024 * 1024) { this.showToast('error', 'El archivo no puede superar 10 MB.'); return; }
+          await this.runBusy('Subiendo documento...', async () => {
+            try {
+              const base64 = await this.readFileAsBase64(this.uploadDocFile);
+              const data = await this.postToServer('upload_document', {
+                tipo,
+                studentId: this.uploadDocForm.studentId,
+                companyId: this.uploadDocForm.companyId,
+                fileName: this.uploadDocFile.name,
+                mimeType: this.uploadDocFile.type,
+                base64
+              });
+              if (data && data.document) this.documents.push(data.document);
+              this.closeUploadDocumentForm();
+              this.showToast('success', 'Documento subido y clasificado correctamente.');
+            } catch (err) {
+              const code = (err && err.message) || 'ERROR';
+              const messages = {
+                DOCUMENT_TYPE_REQUIRED: 'Indica un tipo de documento.',
+                DOCUMENT_LINK_REQUIRED: 'Asocia el documento a un alumno/a, una empresa o ambos.',
+                DOCUMENT_FILE_REQUIRED: 'Selecciona un archivo.',
+                DOCUMENT_FILE_INVALID: 'El archivo no se pudo leer.',
+                DOCUMENT_FILE_TOO_LARGE: 'El archivo no puede superar 10 MB.',
+                STUDENT_NOT_FOUND: 'El alumno/a seleccionado ya no existe.',
+                COMPANY_NOT_FOUND: 'La empresa seleccionada ya no existe.',
+                OWNERSHIP_REQUIRED: 'No tienes permiso para asociar documentos a este alumno/a.'
+              };
+              this.lastSyncError = messages[code] || `Fallo subiendo documento: ${code}`;
               this.showToast('error', this.lastSyncError);
             }
           });
