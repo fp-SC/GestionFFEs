@@ -9,6 +9,7 @@
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 
   <style>
     [v-cloak] { display: none; }
@@ -430,9 +431,10 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mb-3">
                 <div>
                   <span class="field-label">Empresa</span>
+                  <input v-model="periodCompanyQuery" placeholder="Buscar empresa..." class="field mb-1" />
                   <select v-model="periodo.EmpresaId" @change="periodo.TutorEmpresaId = ''" class="field">
                     <option value="">Sin empresa</option>
-                    <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
+                    <option v-for="c in companySelectionOptions(periodCompanyQuery)" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
                   </select>
                 </div>
                 <div>
@@ -784,6 +786,14 @@
               <i class="ph ph-funnel-x text-sm"></i>
               <span>Quitar filtro</span>
             </button>
+            <button v-if="documentExportTarget" @click="downloadAssociatedDocuments('zip')" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-sky-800 hover:bg-sky-700 border border-sky-500/60 font-bold text-sky-100 transition">
+              <i class="ph ph-file-zip text-base"></i>
+              <span>Descargar ZIP</span>
+            </button>
+            <button v-if="documentExportTarget" @click="downloadAssociatedDocuments('pdf')" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-900/70 hover:bg-red-800 border border-red-500/60 font-bold text-red-100 transition">
+              <i class="ph ph-files text-base"></i>
+              <span>Descargar PDF único</span>
+            </button>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -853,16 +863,18 @@
             </div>
             <div>
               <span class="field-label">Alumno/a</span>
+              <input v-model="uploadStudentQuery" placeholder="Buscar alumno/a..." class="field mb-1" />
               <select v-model="uploadDocForm.studentId" class="field">
                 <option value="">Sin alumno/a asociado</option>
-                <option v-for="s in students" :key="s.id" :value="s.id">{{ s.Nombre_Alumno }} {{ s.Apellidos_Alumno }}</option>
+                <option v-for="s in studentSelectionOptions(uploadStudentQuery)" :key="s.id" :value="s.id">{{ s.Apellidos_Alumno }} {{ s.Nombre_Alumno }}</option>
               </select>
             </div>
             <div>
               <span class="field-label">Empresa</span>
+              <input v-model="uploadCompanyQuery" placeholder="Buscar empresa..." class="field mb-1" />
               <select v-model="uploadDocForm.companyId" class="field">
                 <option value="">Sin empresa asociada</option>
-                <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
+                <option v-for="c in companySelectionOptions(uploadCompanyQuery)" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
               </select>
             </div>
             <div>
@@ -953,16 +965,18 @@
             </div>
             <div v-if="documentStudentSelectorVisible">
               <span class="field-label">Alumno/a</span>
+              <input v-model="genDocStudentQuery" placeholder="Buscar alumno/a..." class="field mb-1" />
               <select v-model="genDocForm.studentId" @change="onGenDocStudentChange" class="field">
                 <option value="">Selecciona alumno/a</option>
-                <option v-for="s in students" :key="s.id" :value="s.id">{{ s.Nombre_Alumno }} {{ s.Apellidos_Alumno }}</option>
+                <option v-for="s in studentSelectionOptions(genDocStudentQuery)" :key="s.id" :value="s.id">{{ s.Apellidos_Alumno }} {{ s.Nombre_Alumno }}</option>
               </select>
             </div>
             <div v-if="documentCompanySelectorVisible">
               <span class="field-label">Empresa</span>
+              <input v-model="genDocCompanyQuery" placeholder="Buscar empresa..." class="field mb-1" />
               <select v-model="genDocForm.companyId" @change="onGenDocCompanyChange" class="field">
                 <option value="">Selecciona empresa</option>
-                <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
+                <option v-for="c in companySelectionOptions(genDocCompanyQuery)" :key="c.id" :value="c.id">{{ c.Nombre_Empresa }}</option>
               </select>
             </div>
             <div v-if="documentGroupSelectorVisible">
@@ -1563,6 +1577,11 @@
           documentTipoFilter: '',
           documentStudentFilter: '',
           documentCompanyFilter: '',
+          periodCompanyQuery: '',
+          uploadStudentQuery: '',
+          uploadCompanyQuery: '',
+          genDocStudentQuery: '',
+          genDocCompanyQuery: '',
           csvSeparator: ',',
 
           studentFormOpen: false,
@@ -1602,7 +1621,8 @@
           return this.students.filter((s) => (s.CursoAcademicoId || '') === this.selectedCursoAcademicoId);
         },
         companiesDelCurso() {
-          return this.companies;
+          if (!this.selectedCursoAcademicoId) return this.companies;
+          return this.companies.filter((c) => (c.CursoAcademicoId || '') === this.selectedCursoAcademicoId);
         },
         filteredStudents() {
           const q = (this.studentQuery || '').toLowerCase().trim();
@@ -1646,7 +1666,7 @@
           const q = (this.documentQuery || '').toLowerCase().trim();
           return this.documents
             .filter((d) => !this.documentTipoFilter || d.Tipo_Documento === this.documentTipoFilter)
-            .filter((d) => !this.documentStudentFilter || d.StudentId === this.documentStudentFilter)
+            .filter((d) => !this.documentStudentFilter || d.StudentId === this.documentStudentFilter || (Array.isArray(d.StudentIds) && d.StudentIds.includes(this.documentStudentFilter)))
             .filter((d) => !this.documentCompanyFilter || d.CompanyId === this.documentCompanyFilter)
             .filter((d) => {
               if (!q) return true;
@@ -1655,6 +1675,11 @@
             })
             .slice()
             .sort((a, b) => (b.generatedAt || '').localeCompare(a.generatedAt || ''));
+        },
+        documentExportTarget() {
+          if (this.documentStudentFilter) return { studentId: this.documentStudentFilter, label: this.studentNameById(this.documentStudentFilter) };
+          if (this.documentCompanyFilter) return { companyId: this.documentCompanyFilter, label: this.companyNameById(this.documentCompanyFilter) };
+          return null;
         },
         activeFfeCount() {
           return this.studentsDelCurso.filter((s) => (s.Estado_FFE || '').toLowerCase() === 'activa').length;
@@ -1725,7 +1750,7 @@
           return this.selectedTemplateScope === 'company' || this.selectedTemplateScope === 'group';
         },
         genDocAvailableGroups() {
-          let source = this.students.slice();
+          let source = this.studentsDelCurso.slice();
           if (this.selectedTemplateScope === 'company' && this.genDocForm.companyId) {
             source = source.filter((s) => {
               const periodos = Array.isArray(s.Periodos) ? s.Periodos : [];
@@ -1736,7 +1761,7 @@
           return Array.from(new Set(groups)).sort((a, b) => a.localeCompare(b));
         },
         genDocStudentsCandidates() {
-          let source = this.students.slice();
+          let source = this.studentsDelCurso.slice();
           if (this.selectedTemplateScope === 'company') {
             if (!this.genDocForm.companyId) return [];
             source = source.filter((s) => {
@@ -2006,6 +2031,57 @@
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a'); a.href = url; a.download = filename;
           document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        },
+        downloadBinaryFile(filename, bytes, mimeType) {
+          const blob = new Blob([bytes], { type: mimeType });
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename;
+          document.body.appendChild(anchor); anchor.click(); anchor.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        },
+        downloadUrl(filename, url) {
+          const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename;
+          document.body.appendChild(anchor); anchor.click(); anchor.remove();
+        },
+        base64ToUint8Array(base64) {
+          const binary = atob(base64 || '');
+          const bytes = new Uint8Array(binary.length);
+          for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+          return bytes;
+        },
+        async downloadAssociatedDocuments(format) {
+          const target = this.documentExportTarget;
+          if (!target) return;
+          await this.runBusy(format === 'zip' ? `Preparando ZIP de ${target.label}...` : `Uniendo PDFs de ${target.label}...`, async () => {
+            try {
+              const data = await this.postToServer('export_documents', { ...target, format });
+              if (format === 'zip') {
+                this.downloadUrl(data.fileName || 'documentos.zip', data.downloadUrl);
+              } else {
+                if (!window.PDFLib) throw new Error('PDF_MERGE_LIBRARY_UNAVAILABLE');
+                const mergedPdf = await window.PDFLib.PDFDocument.create();
+                for (const item of (data.files || [])) {
+                  const sourcePdf = await window.PDFLib.PDFDocument.load(this.base64ToUint8Array(item.base64));
+                  const pages = await mergedPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
+                  pages.forEach((page) => mergedPdf.addPage(page));
+                }
+                this.downloadBinaryFile(data.fileName || 'documentos.pdf', await mergedPdf.save(), 'application/pdf');
+              }
+              this.showToast('success', `${data.count || 0} documento/s preparados para descargar.`);
+            } catch (err) {
+              const code = (err && err.message) || 'ERROR';
+              const messages = {
+                DOCUMENT_EXPORT_EMPTY: 'No hay documentos asociados para descargar.',
+                DOCUMENT_EXPORT_TARGET_REQUIRED: 'Selecciona un alumno/a o una empresa para descargar sus documentos.',
+                DOCUMENT_FILE_NOT_FOUND: 'No se encontró uno de los archivos en Drive.',
+                DOCUMENT_EXPORT_NOT_PDF: 'El PDF único solo se puede generar cuando todos los documentos asociados son PDF.',
+                DOCUMENT_EXPORT_TOO_LARGE: 'Los PDFs asociados superan 20 MB. Descárgalos mediante ZIP.',
+                PDF_MERGE_LIBRARY_UNAVAILABLE: 'No se pudo cargar el componente necesario para unir los PDF.'
+              };
+              this.lastSyncError = messages[code] || `Fallo preparando la descarga: ${code}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
         downloadStudentsTemplateCsv() {
           const header = ['Nombre_Alumno','Apellidos_Alumno','DNI_Alumno','Email_Alumno','Telefono_Alumno','Curso_Alumno','Grupo_Alumno','Familia_Profesional','Estado_FFE','TutorCentroId','Observaciones_Alumno'];
@@ -2379,10 +2455,32 @@
           const t = this.tutoresCentro.find((x) => x.id === tutorId);
           return t ? `${t.Nombre_Tutor_Centro} ${t.Apellidos_Tutor_Centro}`.trim() : '';
         },
-        documentCountForStudent(id) { return this.documents.filter((d) => d.StudentId === id).length; },
+        studentSelectionOptions(query) {
+          const search = (query || '').toLocaleLowerCase('es-ES').trim();
+          return this.studentsDelCurso
+            .filter((student) => {
+              if (!search) return true;
+              const text = `${student.Apellidos_Alumno || ''} ${student.Nombre_Alumno || ''} ${student.DNI_Alumno || ''} ${student.Grupo_Alumno || ''}`.toLocaleLowerCase('es-ES');
+              return text.includes(search);
+            })
+            .slice()
+            .sort((a, b) => `${a.Apellidos_Alumno || ''} ${a.Nombre_Alumno || ''}`.localeCompare(`${b.Apellidos_Alumno || ''} ${b.Nombre_Alumno || ''}`, 'es'));
+        },
+        companySelectionOptions(query) {
+          const search = (query || '').toLocaleLowerCase('es-ES').trim();
+          return this.companiesDelCurso
+            .filter((company) => {
+              if (!search) return true;
+              const text = `${company.Nombre_Empresa || ''} ${company.NIF_Empresa || ''} ${company.Localidad_Empresa || ''}`.toLocaleLowerCase('es-ES');
+              return text.includes(search);
+            })
+            .slice()
+            .sort((a, b) => (a.Nombre_Empresa || '').localeCompare(b.Nombre_Empresa || '', 'es'));
+        },
+        documentCountForStudent(id) { return this.documents.filter((d) => d.StudentId === id || (Array.isArray(d.StudentIds) && d.StudentIds.includes(id))).length; },
         documentCountForCompany(id) { return this.documents.filter((d) => d.CompanyId === id).length; },
-        viewDocumentsForStudent(s) { this.documentStudentFilter = s.id; this.documentCompanyFilter = ''; this.activeTab = 'documents'; },
-        viewDocumentsForCompany(c) { this.documentCompanyFilter = c.id; this.documentStudentFilter = ''; this.activeTab = 'documents'; },
+        viewDocumentsForStudent(s) { this.documentStudentFilter = s.id; this.documentCompanyFilter = ''; this.documentQuery = ''; this.documentTipoFilter = ''; this.activeTab = 'documents'; },
+        viewDocumentsForCompany(c) { this.documentCompanyFilter = c.id; this.documentStudentFilter = ''; this.documentQuery = ''; this.documentTipoFilter = ''; this.activeTab = 'documents'; },
 
         // ---------- TUTORES DEL CENTRO (Admin) ----------
         startNewTutorCentro() {
@@ -3300,6 +3398,8 @@
           return normalized;
         },
         async openGenerateDocForm() {
+          this.genDocStudentQuery = '';
+          this.genDocCompanyQuery = '';
           this.genDocForm = {
             tipo: this.documentTiposDisponibles[0] || '', studentId: '', studentIds: [], companyId: '', grupoAlumno: '', periodoId: '', tutorEmpresaId: '',
             manualFields: {}, pidiendoIdConvenio: false, idConvenioManual: '',
@@ -3502,6 +3602,8 @@
           });
         },
         openUploadDocumentForm() {
+          this.uploadStudentQuery = '';
+          this.uploadCompanyQuery = '';
           this.uploadDocForm = { tipo: '', tipoNuevo: '', studentId: '', companyId: '', estadoFirma: 'PENDIENTE_FIRMA', metodoFirma: '', firmantesPendientes: '' };
           this.uploadDocFile = null;
           this.uploadDocFormOpen = true;
