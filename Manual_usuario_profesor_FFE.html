@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manual de usuario - Gestión FFE</title>
+  <style>
+    :root { --ink: #172033; --muted: #526074; --brand: #0e7490; --accent: #f59e0b; --paper: #ffffff; --line: #d7dee8; --wash: #eff8fa; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: #e7edf3; font: 11pt/1.55 Aptos, Calibri, Arial, sans-serif; }
+    main { max-width: 210mm; min-height: 297mm; margin: 16px auto; padding: 18mm; background: var(--paper); box-shadow: 0 2px 18px #8090a033; }
+    h1, h2, h3 { font-family: Georgia, 'Times New Roman', serif; line-height: 1.15; }
+    h1 { margin: 0; font-size: 30pt; color: #0f3e51; }
+    h2 { margin: 30px 0 10px; padding-bottom: 5px; border-bottom: 2px solid var(--brand); font-size: 19pt; color: #0f3e51; break-after: avoid; }
+    h3 { margin: 20px 0 6px; font-size: 14pt; color: #155e75; break-after: avoid; }
+    h4 { margin: 13px 0 4px; font-size: 11pt; color: #0f3e51; }
+    p { margin: 6px 0 10px; }
+    ol, ul { margin: 6px 0 12px; padding-left: 22px; }
+    li { margin: 3px 0; }
+    .cover { display: flex; min-height: 250mm; flex-direction: column; justify-content: center; border-top: 12px solid var(--brand); }
+    .kicker { margin: 0 0 10px; color: var(--brand); font-size: 12pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
+    .subtitle { max-width: 540px; color: var(--muted); font-size: 15pt; }
+    .meta { margin-top: 38px; padding: 14px; border-left: 4px solid var(--accent); background: #fff8e6; }
+    .note, .warning { margin: 14px 0; padding: 10px 12px; border-left: 4px solid var(--brand); background: var(--wash); }
+    .warning { border-color: var(--accent); background: #fff8e6; }
+    .role { display: inline-block; padding: 2px 7px; border-radius: 3px; color: #075267; background: #dff3f7; font: 700 9pt Aptos, Calibri, Arial, sans-serif; }
+    .admin { color: #854d0e; background: #fef3c7; }
+    .toc { columns: 2; column-gap: 30px; }
+    .toc a { color: #155e75; text-decoration: none; }
+    figure { margin: 18px 0 22px; page-break-inside: avoid; }
+    figure img { width: 100%; max-height: 540px; object-fit: contain; object-position: top; border: 1px solid var(--line); }
+    figcaption { margin-top: 4px; color: var(--muted); font-size: 9.5pt; }
+    table { width: 100%; margin: 12px 0; border-collapse: collapse; font-size: 10pt; }
+    th, td { padding: 7px 8px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: #0f3e51; background: #e7f5f8; }
+    code { padding: 1px 3px; color: #11475a; background: #eaf3f5; font: 9.5pt Consolas, monospace; }
+    .page-break { break-before: page; }
+    .checklist li { list-style: square; }
+    @media print { body { background: white; } main { max-width: none; margin: 0; padding: 14mm; box-shadow: none; } a { color: inherit; } .cover { min-height: 267mm; } }
+  </style>
+</head>
+<body>
+  <main contenteditable="true">
+    <section class="cover">
+      <p class="kicker">Sagrado Corazón</p>
+      <h1>Manual de usuario<br>Gestión FFE</h1>
+      <p class="subtitle">Guía operativa para el profesorado: alumnado, empresas, períodos de formación, documentación y administración autorizada.</p>
+      <div class="meta"><strong>Documento editable.</strong> Puede abrirse y modificarse en el navegador, Word o LibreOffice. Versión de referencia: noviembre de 2026.</div>
+    </section>
+
+    <h2 id="indice">Índice</h2>
+    <div class="toc">
+      <p><a href="#acceso">1. Acceso y navegación</a></p>
+      <p><a href="#resumen">2. Resumen</a></p>
+      <p><a href="#alumnos">3. Gestión de alumnado</a></p>
+      <p><a href="#periodos">4. Períodos, horario y resultados</a></p>
+      <p><a href="#empresas">5. Gestión de empresas</a></p>
+      <p><a href="#documentos">6. Documentos y firmas</a></p>
+      <p><a href="#admin">7. Administración autorizada</a></p>
+      <p><a href="#incidencias">8. Incidencias habituales</a></p>
+      <p><a href="#cierre">9. Lista de comprobación</a></p>
+    </div>
+
+    <h2 id="acceso">1. Acceso y navegación</h2>
+    <p><span class="role">Profesorado autorizado</span> Acceda con una cuenta institucional de <code>@sagrado-corazon.es</code>. La plataforma carga la información del curso académico seleccionado.</p>
+    <ol>
+      <li>Abra la dirección de la aplicación y pulse <strong>Iniciar sesión con Google</strong>.</li>
+      <li>Seleccione su cuenta institucional. Si no tiene acceso, solicite al administrador que incluya su correo en la lista de profesorado autorizado.</li>
+      <li>Use el selector de la cabecera para trabajar con un curso concreto o ver todos los cursos.</li>
+      <li>Pulse <strong>Recargar</strong> tras cambios efectuados por otra persona. El indicador <strong>Sincronizado</strong> confirma que la última carga terminó correctamente.</li>
+      <li>Pulse <strong>Cerrar sesión</strong> al finalizar, especialmente en equipos compartidos.</li>
+    </ol>
+    <div class="note">Las secciones principales son <strong>Resumen</strong>, <strong>Alumnos</strong>, <strong>Empresas</strong> y <strong>Documentos</strong>. La pestaña <strong>Admin</strong> aparece solo a personas administradoras.</div>
+
+    <h2 id="resumen">2. Resumen</h2>
+    <p><span class="role">Profesorado autorizado</span> La pantalla inicial concentra los indicadores de seguimiento: alumnado, empresas, documentos generados y FFE activas. Debajo se agrupan el alumnado y las empresas por familia profesional.</p>
+    <figure><img src="manual_usuario_assets/01_resumen.png" alt="Vista real de Resumen con datos de demostración"><figcaption>Vista de Resumen de la aplicación con datos ficticios de demostración.</figcaption></figure>
+    <p>Use esta vista para localizar rápidamente una familia profesional, comprobar quién está sin empresa asignada y contrastar el volumen de documentación antes de generar o importar información.</p>
+
+    <h2 id="alumnos">3. Gestión de alumnado</h2>
+    <h3>3.1 Consultar, buscar y editar</h3>
+    <p><span class="role">Profesorado autorizado</span> En <strong>Alumnos</strong>, el buscador encuentra coincidencias por nombre, apellidos, curso, grupo o familia profesional.</p>
+    <ol>
+      <li>Escriba el criterio de búsqueda o filtre por curso académico en la cabecera.</li>
+      <li>Pulse <strong>Nuevo alumno</strong> para crear una ficha o <strong>Editar</strong> en la fila correspondiente.</li>
+      <li>Complete identificación, contacto, curso, estudio, grupo, familia profesional, estado FFE y tutor/a de centro.</li>
+      <li>Introduzca las observaciones o las autorizaciones de discapacidad/extraordinaria cuando proceda.</li>
+      <li>Pulse <strong>Guardar alumno</strong>. Para descartar cambios, use <strong>Cancelar</strong>.</li>
+    </ol>
+    <div class="warning">El grupo se propone a partir de los datos académicos, pero puede ajustarse desde la ficha cuando sea necesario.</div>
+
+    <h3>3.2 Importar alumnado y descargar plantilla</h3>
+    <p><span class="role">Profesorado autorizado</span> La sección permite descargar una plantilla CSV y cargar ficheros CSV/XLSX, incluido el formato de exportación del centro.</p>
+    <h4>Opción 1:</h4>
+    <ol>
+      <li>Entre en su cuenta de Educamos.</li>
+      <li>Pinche en <strong>Datos>>Usuarios</strong></li>
+      <li>Seleccione el nivel educativo del alumnado que desea gestionar. Pinche en "Buscar"</li>
+      <li>Marque a todo el alumnado que desee gestionar y pinche en "Informes" <br>
+      <figure><img src="manual_usuario_assets/SeleccionAlumnadoEducamos.png" alt="Cómo marcar alumnado en Educamos"><figcaption>Cómo marcar alumnado en Educamos y botón de Informes.</figcaption></figure></li>
+      <li>Busque en el listado de informes "Datos para FFEs", selecciones "Excel" como formato de salida y pulse "imprimir". <br>
+      <figure><img src="manual_usuario_assets/SeleccionarDatosFFEEducamos.png" alt="Seleccionar datos para FFEs en Educamos"><figcaption>Seleccionar datos y formato de salida para FFEs en Educamos.</figcaption></figure></li>
+      <li>En la APP de gestiión de FFEs pinche en "Subir CSV/Excel"<br>
+      <figure><img src="manual_usuario_assets/SubirExcel.png" alt="Sube el archivo generado por Educamos"><figcaption>Subir el archivo generado por Educamos</figcaption></figure></li></li>
+      <li>Si la carga se realiza de forma exitosa, el sistema mostrará un mensaje de confirmación y le aparecerán los alumnos cargados.</li>
+    </ol>
+    <h4>Opción 2:</h4>
+    <ol>
+      <li>Pulse <strong>Descargar plantilla CSV</strong>.</li>
+      <li>Rellene una fila por alumno sin cambiar los encabezados.</li>
+      <li>Pulse <strong>Subir CSV/XLSX</strong> y seleccione el archivo.</li>
+      <li>Revise el resultado de importación. Si hay filas inválidas, descargue el archivo de errores, corrija solo esas filas y repita la carga.</li>
+    </ol>
+    <p>La ficha individual sirve para realizar correcciones posteriores sin tener que repetir una importación completa.</p>
+
+    <h3>3.3 Acciones masivas</h3>
+    <p><span class="role">Profesorado autorizado</span> Marque las casillas de las filas para aplicar cambios comunes: curso, estudio, familia profesional, estado FFE, tutor/a de centro y curso académico. Confirme la operación en el panel de edición masiva.</p>
+    <p>También puede copiar módulos y resultados de aprendizaje (RA) desde un alumno y período de origen a los alumnos seleccionados. Seleccione primero el alumnado destinatario, elija el origen y confirme la copia.</p>
+    <p><span class="role admin">Solo administración</span> La eliminación masiva de alumnos requiere permisos de administración.</p>
+
+    <h2 id="periodos" class="page-break">4. Períodos, horario y resultados</h2>
+    <p><span class="role">Profesorado autorizado</span> Cada ficha de alumno puede contener uno o varios períodos de FFE. En cada período se relacionan empresa, tutor/a de empresa, fechas, días, franjas horarias, horas y módulos.</p>
+    <figure><img src="manual_usuario_assets/02_ficha_alumno_periodo.png" alt="Ficha real de alumno y período con datos de demostración"><figcaption>Figura 2. Ficha de alumno y configuración de un período FFE. La cifra de 220 horas es un dato ficticio de demostración.</figcaption></figure>
+    <h3>4.1 Crear o modificar un período</h3>
+    <ol>
+      <li>Abra la ficha del alumno y pulse <strong>Añadir período</strong> si todavía no existe.</li>
+      <li>Busque y seleccione la empresa. A continuación seleccione el tutor o tutora de empresa disponible.</li>
+      <li>Indique fecha de inicio y fin.</li>
+      <li>Marque los días de asistencia y añada una o varias franjas por día. Puede copiar el horario del primer día configurado a los días seleccionados.</li>
+      <li>Revise las <strong>Horas/semana</strong> calculadas.</li>
+      <li>Guarde la ficha completa del alumno.</li>
+    </ol>
+    <h3>4.2 Horas totales del período</h3>
+    <p>La aplicación calcula las horas totales considerando las fechas, el horario y el calendario lectivo configurado. Cuando deba establecer una cifra distinta:</p>
+    <ol>
+      <li>Escriba el valor correcto en <strong>Horas totales del período</strong>.</li>
+      <li>Active <strong>Mantener ajuste manual</strong>. Al editar el campo, este ajuste se activa automáticamente.</li>
+      <li>Guarde el alumno. El valor manual permanece al guardar y en los recálculos de calendario.</li>
+      <li>Use <strong>Recalcular horas</strong> solo cuando quiera volver al cálculo automático; esta acción elimina el ajuste manual.</li>
+    </ol>
+    <h3>4.3 Módulos y resultados de aprendizaje</h3>
+    <ol>
+      <li>En el período, pulse <strong>Añadir módulo</strong>.</li>
+      <li>Indique módulo, código, horas y modalidad: <strong>Completo en empresa</strong> o <strong>Compartido centro/empresa</strong>.</li>
+      <li>Añada los RA previstos, su descripción y, cuando corresponda, la ponderación.</li>
+      <li>Guarde la ficha. Para reutilizar la estructura en otros alumnos, utilice la copia masiva de módulos y RA.</li>
+    </ol>
+
+    <h2 id="empresas">5. Gestión de empresas</h2>
+    <p><span class="role">Profesorado autorizado</span> La pestaña <strong>Empresas</strong> muestra identidad, NIF, actividad, localización, representante, número de tutores, documentos vinculados y acciones disponibles.</p>
+    <figure><img src="manual_usuario_assets/04_empresas.png" alt="Vista real de empresas con datos de demostración"><figcaption>Figura 3. Listado de empresas con convenio, tutores y accesos a documentos.</figcaption></figure>
+    <h3>5.1 Alta y edición de empresa</h3>
+    <ol>
+      <li>Pulse <strong>Nueva empresa</strong> o <strong>Editar</strong>.</li>
+      <li>Complete nombre, NIF, actividad, base legal, número de convenio, ubicación, representante y observaciones.</li>
+      <li>En la sección de tutores de empresa, pulse <strong>Añadir tutor</strong> y complete al menos nombre, apellidos y correo cuando estén disponibles. Se admiten varios tutores.</li>
+      <li>Guarde. La empresa quedará disponible en los selectores de períodos y documentos.</li>
+    </ol>
+    <h3>5.2 Importación y acciones masivas</h3>
+    <ol>
+      <li>Pulse <strong>Descargar plantilla CSV</strong>. La plantilla incluye todos los campos y espacio para dos tutores de empresa.</li>
+      <li>Para el identificador de convenio, escriba el número de convenio en la columna correspondiente.</li>
+      <li>Use <strong>Subir CSV empresas</strong> para importar el archivo.</li>
+      <li>Si alguna fila no se incorpora, descargue el informe de errores, corríjala y vuelva a cargarla.</li>
+      <li>Marque varias empresas para actualizarlas de forma masiva. <span class="role admin">Solo administración</span> puede eliminarlas masivamente.</li>
+    </ol>
+    <p>El botón <strong>Ver log de convenios</strong> descarga el listado de números de convenio. Desde cada empresa puede acceder a sus documentos mediante el contador <strong>doc.</strong>.</p>
+    <p><span class="role admin">Solo administración</span> Si la lista de empresas aparece vacía por una incidencia de almacenamiento, está disponible la recuperación desde la papelera de Drive.</p>
+
+    <h2 id="documentos" class="page-break">6. Documentos y firmas</h2>
+    <p><span class="role">Profesorado autorizado</span> En <strong>Documentos</strong> se generan PDFs desde plantillas, se suben archivos existentes y se controla la firma. El buscador filtra por alumno o empresa y el desplegable limita por tipo.</p>
+    <figure><img src="manual_usuario_assets/03_documentos.png" alt="Vista real de documentos con datos de demostración"><figcaption>Figura 4. Registro de documentos: tipo, personas vinculadas, estado de firma, fecha y acciones.</figcaption></figure>
+    <h3>6.1 Generar un PDF desde una plantilla</h3>
+    <ol>
+      <li>Pulse <strong>Generar documento PDF</strong>.</li>
+      <li>Seleccione el tipo de documento configurado.</li>
+      <li>Seleccione el ámbito solicitado: alumno, empresa o grupo, según la plantilla.</li>
+      <li>Revise el destino y confirme la generación.</li>
+      <li>Abra el resultado desde <strong>Abrir archivo</strong>. Quedará registrado automáticamente en la tabla.</li>
+    </ol>
+    <h3>6.2 Subir un documento existente</h3>
+    <ol>
+      <li>Pulse <strong>Subir documento</strong>.</li>
+      <li>Seleccione un tipo existente o cree un tipo cuando tenga permiso de administración.</li>
+      <li>Vincule el archivo a un alumno, una empresa o a ambos; para un documento grupal puede vincular varios alumnos.</li>
+      <li>Seleccione el archivo y confirme la subida.</li>
+    </ol>
+    <h3>6.3 Firmas, sustitución y eliminación</h3>
+    <ol>
+      <li>Pulse <strong>Firmas</strong> en la fila del documento.</li>
+      <li>Indique estado, método de firma y firmantes pendientes. Guarde la actualización.</li>
+      <li>Cuando reciba el documento firmado, use la opción de reemplazar para conservar el registro y sustituir el archivo por la copia firmada.</li>
+      <li>Para retirar un documento, pulse <strong>Eliminar</strong> y confirme. El registro desaparece y el archivo se envía a la papelera de Drive.</li>
+    </ol>
+    <h3>6.4 Exportar documentos de una entidad</h3>
+    <p>Entre desde el contador de documentos de un alumno o empresa. Seleccione los archivos y use la descarga: se genera un ZIP o, cuando todos los elementos son PDF, un PDF combinado. El límite de tamaño conjunto es 20 MB.</p>
+
+    <h2 id="admin" class="page-break">7. Administración autorizada</h2>
+    <p><span class="role admin">Solo administración</span> Esta pestaña se usa para preparar el curso y mantener los datos maestros. Los cambios afectan a la disponibilidad de opciones para el resto del profesorado.</p>
+    <figure><img src="manual_usuario_assets/05_administracion.png" alt="Vista real de administración"><figcaption>Figura 5. Pestaña de administración de la aplicación.</figcaption></figure>
+    <h3>7.1 Accesos y tutores de centro</h3>
+    <ol>
+      <li>En <strong>Acceso profesorado</strong>, añada o retire cuentas institucionales autorizadas.</li>
+      <li>En <strong>Tutores de centro</strong>, cree, edite o elimine los tutores que aparecerán en las fichas del alumnado.</li>
+    </ol>
+    <h3>7.2 Cursos académicos y estudios</h3>
+    <ol>
+      <li>En <strong>Cursos académicos</strong>, cree un curso, renómbrelo, márquelo como predeterminado o clone la configuración de otro curso.</li>
+      <li>En <strong>Estudios/Ciclos</strong>, mantenga código, nombre, grado y régimen. Estos datos alimentan los selectores de las fichas.</li>
+    </ol>
+    <h3>7.3 Calendario lectivo</h3>
+    <ol>
+      <li>Seleccione el curso académico.</li>
+      <li>Defina inicio y fin del curso.</li>
+      <li>Marque los días no lectivos, incluidos festivos y fines de semana que no deban computar.</li>
+      <li>Guarde los cambios. Los períodos automáticos se recalculan respetando los que tengan <strong>Mantener ajuste manual</strong> activo.</li>
+    </ol>
+    <h3>7.4 Datos del centro, tipos y plantillas</h3>
+    <ol>
+      <li>Complete los datos globales del centro que utilizan los documentos.</li>
+      <li>Configure la carpeta de salida de PDFs y las carpetas por tipo documental.</li>
+      <li>Cree los tipos de documento necesarios.</li>
+      <li>Para cada plantilla de Google Docs, indique su identificador, ámbito (alumno, empresa o grupo), patrón de nombre y carpeta de salida.</li>
+      <li>Utilice la detección de marcadores para comprobar los campos disponibles antes de generar documentos.</li>
+    </ol>
+
+    <h2 id="incidencias">8. Incidencias habituales</h2>
+    <table>
+      <thead><tr><th>Situación</th><th>Actuación recomendada</th></tr></thead>
+      <tbody>
+        <tr><td>No puedo iniciar sesión.</td><td>Compruebe que usa una cuenta <code>@sagrado-corazon.es</code>. Si persiste, pida al administrador que revise su autorización.</td></tr>
+        <tr><td>No aparece una empresa en un período.</td><td>Revise que la empresa esté dada de alta y no eliminada; después pulse <strong>Recargar</strong>.</td></tr>
+        <tr><td>Una importación deja filas fuera.</td><td>Descargue el archivo de errores, corrija los datos indicados y vuelva a importar las filas afectadas.</td></tr>
+        <tr><td>Las horas totales cambian.</td><td>Compruebe fechas, días y franjas. Si el total debe ser excepcional, introdúzcalo y active <strong>Mantener ajuste manual</strong>.</td></tr>
+        <tr><td>No veo la pestaña Admin.</td><td>Es normal para profesorado no administrador. Solicite el permiso solo si debe gestionar datos maestros.</td></tr>
+        <tr><td>Se eliminó un documento por error.</td><td>El archivo se traslada a la papelera de Drive. Restaúrelo allí y vuelva a subirlo para recuperarlo en el registro.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="cierre">9. Lista de comprobación antes del inicio de FFE</h2>
+    <ul class="checklist">
+      <li>El curso académico y el calendario lectivo están configurados.</li>
+      <li>El alumnado tiene estudio, grupo, tutor/a de centro y estado FFE actualizados.</li>
+      <li>Cada período tiene empresa, tutor/a de empresa, fechas, días y horarios correctos.</li>
+      <li>Las horas totales se han revisado; los ajustes excepcionales están marcados como manuales.</li>
+      <li>Los módulos y RA están registrados o copiados desde una ficha verificada.</li>
+      <li>La empresa tiene número de convenio, representante y tutores actualizados.</li>
+      <li>Las plantillas y datos del centro están revisados antes de generar PDFs.</li>
+      <li>Los documentos pendientes de firma están identificados y los firmados sustituidos por su copia definitiva.</li>
+    </ul>
+    <p class="note"><strong>Nota sobre edición:</strong> este documento está marcado como editable para adaptar los procedimientos internos, añadir capturas posteriores o incluir datos de contacto. Mantenga las capturas y sus pies actualizados cuando cambie la interfaz.</p>
+  </main>
+</body>
+</html>
